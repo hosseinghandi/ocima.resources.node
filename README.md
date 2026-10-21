@@ -21,6 +21,13 @@ The Vite frontend is available at `http://localhost:5173` and proxies API
 requests to `http://127.0.0.1:3001`. To run both with Electron during
 development, use `npm run electron:dev`.
 
+The frontend includes a demonstration sign-in/registration flow and a sample
+administrator workspace. Select an administrator or employee demo profile and
+enter any valid email plus a password of at least six characters. Employee
+records, reports, sample approval actions, and fallback sample hours are held
+in frontend memory and reset on reload; this is a UI demo, not production
+authentication or storage.
+
 ## Build
 
 ```sh

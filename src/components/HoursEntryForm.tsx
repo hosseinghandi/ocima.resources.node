@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FocusEvent, type FormEvent } from "react";
 import { createTimeEntry } from "../services/timeEntries";
 import type { TimeEntry } from "../../shared/timeEntry";
+import { demoWorkEntries } from "../demoData";
 import { Icon } from "./Icon";
 
 function localDate() {
@@ -11,6 +12,10 @@ function localDate() {
 const inputClass =
   "mt-2 min-h-12 w-full rounded-lg border border-border-strong bg-surface px-3.5 text-sm font-medium text-ink outline-none transition placeholder:text-ink-muted hover:border-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10";
 
+const knownProjects = Array.from(new Set(demoWorkEntries.map((entry) => entry.project))).sort((a, b) =>
+  a.localeCompare(b, "it"),
+);
+
 export function HoursEntryForm({
   onSaved,
 }: {
@@ -19,11 +24,27 @@ export function HoursEntryForm({
   const [hours, setHours] = useState("8");
   const [date, setDate] = useState(localDate);
   const [project, setProject] = useState("");
+  const [projectSearchOpen, setProjectSearchOpen] = useState(false);
   const [activity, setActivity] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const matchingProjects = useMemo(() => {
+    const normalized = project.trim().toLocaleLowerCase("it");
+    return knownProjects.filter((name) => name.toLocaleLowerCase("it").includes(normalized));
+  }, [project]);
+
+  function closeProjectSearch(event: FocusEvent<HTMLDivElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setProjectSearchOpen(false);
+    }
+  }
+
+  function selectProject(name: string) {
+    setProject(name);
+    setProjectSearchOpen(false);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,14 +54,13 @@ export function HoursEntryForm({
     try {
       const entry = await createTimeEntry({
         date,
-        project,
+        project: project.trim(),
         activity,
         hours: Number(hours),
         notes,
       });
       onSaved(entry);
       setMessage("Ore registrate correttamente.");
-      setProject("");
       setActivity("");
       setNotes("");
     } catch (cause) {
@@ -92,17 +112,65 @@ export function HoursEntryForm({
             />
           </label>
         </div>
-        <label className="block text-sm font-semibold text-ink-secondary">
-          Commessa
-          <input
-            required
-            maxLength={120}
-            value={project}
-            onChange={(event) => setProject(event.target.value)}
-            placeholder="Es. MMS-3000"
-            className={inputClass}
-          />
-        </label>
+        <div className="relative" onBlur={closeProjectSearch}>
+          <label className="block text-sm font-semibold text-ink-secondary">
+            Commessa
+            <span className="relative block">
+              <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
+              <input
+                required
+                maxLength={120}
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={projectSearchOpen}
+                aria-controls="hours-project-options"
+                aria-label="Cerca o aggiungi una commessa"
+                value={project}
+                onFocus={() => setProjectSearchOpen(true)}
+                onChange={(event) => {
+                  setProject(event.target.value);
+                  setProjectSearchOpen(true);
+                }}
+                placeholder="Cerca una commessa o inseriscine una nuova"
+                className={`${inputClass} pl-10`}
+              />
+            </span>
+          </label>
+          {projectSearchOpen && (
+            <div id="hours-project-options" role="listbox" aria-label="Commesse disponibili" className="absolute inset-x-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-white py-1 shadow-lg">
+              {matchingProjects.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  role="option"
+                  aria-selected={project === name}
+                  onClick={() => selectProject(name)}
+                  className="flex min-h-11 w-full items-center gap-3 px-3.5 text-left text-sm text-ink transition hover:bg-primary-tint/60 focus-visible:bg-primary-tint/60 focus-visible:outline-none"
+                >
+                  <Icon name="briefcase" className="size-4 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1 truncate font-semibold">{name}</span>
+                  {project === name && <Icon name="check" className="size-4 shrink-0 text-primary" />}
+                </button>
+              ))}
+              {project.trim() && !knownProjects.some((name) => name.toLocaleLowerCase("it") === project.trim().toLocaleLowerCase("it")) && (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => selectProject(project.trim())}
+                  className="flex min-h-11 w-full items-center gap-3 border-t border-border px-3.5 text-left text-sm text-primary transition hover:bg-primary-tint/60 focus-visible:bg-primary-tint/60 focus-visible:outline-none"
+                >
+                  <Icon name="plus" className="size-4 shrink-0" />
+                  <span className="min-w-0 truncate font-bold">Usa nuova commessa: {project.trim()}</span>
+                </button>
+              )}
+              {!project.trim() && matchingProjects.length === 0 && (
+                <p className="px-3.5 py-3 text-sm text-ink-muted">Nessuna commessa disponibile.</p>
+              )}
+            </div>
+          )}
+          <p className="mt-1.5 text-xs text-ink-muted">Cerca una commessa esistente oppure inseriscine una nuova.</p>
+        </div>
         <label className="block text-sm font-semibold text-ink-secondary">
           Attività
           <input
