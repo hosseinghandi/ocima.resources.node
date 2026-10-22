@@ -10,7 +10,7 @@ export default defineConfig({
       "/api": "http://127.0.0.1:3001",
     },
     watch: {
-      ignored: ["**/release/**", "**/dist-server/**", "**/data/**"],
+      ignored: ["**/release/**", "**/backend-dist/**", "**/data/**"],
     },
   },
 });

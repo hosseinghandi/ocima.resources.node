@@ -1,14 +1,17 @@
 import { HoursEntryForm } from "../components/HoursEntryForm";
-import type { TimeEntry } from "../../shared/timeEntry";
+import type { CreateTimeEntryInput, TimeEntry } from "../../shared/timeEntry";
+import type { Employee } from "../../shared/people";
 
 export function HoursPage({
-  onEntrySaved,
+  employee,
+  onSave,
 }: {
-  onEntrySaved: (entry: TimeEntry) => void;
+  employee: Employee;
+  onSave: (input: CreateTimeEntryInput) => Promise<TimeEntry>;
 }) {
   return (
     <div className="mx-auto w-full max-w-3xl">
-        <HoursEntryForm onSaved={onEntrySaved} />
+        <HoursEntryForm employee={employee} onSave={onSave} />
     </div>
   );
 }

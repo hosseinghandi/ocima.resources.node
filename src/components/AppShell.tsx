@@ -1,20 +1,46 @@
 import { useState } from "react";
 import { Icon } from "./Icon";
+import { ChangePasswordDialog, ForgotPasswordDialog } from "./PasswordDialogs";
 import type { Page, UserRole } from "../App";
 
-const adminNavigation: { id: Page; label: string; icon: "briefcase" | "chart" }[] = [
-  { id: "employees", label: "Dipendenti", icon: "briefcase" },
-  { id: "reports", label: "Analisi", icon: "chart" },
+type NavIcon = "briefcase" | "chart" | "people" | "note" | "clock" | "calendar";
+
+type NavGroup = {
+  title: string;
+  items: { id: Page; label: string; icon: NavIcon }[];
+};
+
+const adminNavigation: NavGroup[] = [
+  {
+    title: "Gestionale",
+    items: [
+      { id: "employees", label: "Gestione dipendenti", icon: "people" },
+      { id: "commesse", label: "Gestione commesse", icon: "briefcase" },
+    ],
+  },
+  {
+    title: "Analisi",
+    items: [
+      { id: "activity", label: "Attività dipendenti", icon: "note" },
+      { id: "reports", label: "Analisi commesse", icon: "chart" },
+    ],
+  },
 ];
 
-const employeeNavigation: { id: Page; label: string; icon: "clock" | "calendar" }[] = [
-  { id: "hours", label: "Inserisci ore", icon: "clock" },
-  { id: "summary", label: "Riepilogo", icon: "calendar" },
+const employeeNavigation: NavGroup[] = [
+  {
+    title: "Il tuo spazio",
+    items: [
+      { id: "hours", label: "Inserisci ore", icon: "clock" },
+      { id: "summary", label: "Riepilogo", icon: "calendar" },
+    ],
+  },
 ];
 
 export function AppShell({
   page,
   role,
+  userId,
   userName,
   onPageChange,
   onSignOut,
@@ -22,14 +48,17 @@ export function AppShell({
 }: {
   page: Page;
   role: UserRole;
+  userId: number;
   userName: string;
   onPageChange: (page: Page) => void;
   onSignOut: () => void;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [passwordDialog, setPasswordDialog] = useState<"change" | "forgot" | null>(null);
   const navigation = role === "admin" ? adminNavigation : employeeNavigation;
-  const pageLabel = navigation.find((item) => item.id === page)?.label ?? "Ocima";
+  const pageLabel =
+    navigation.flatMap((group) => group.items).find((item) => item.id === page)?.label ?? "Ocima";
   const initials = userName
     .split(" ")
     .map((part) => part[0])
@@ -55,29 +84,35 @@ export function AppShell({
           <img src="/logo.png" alt="Ocima" className="h-10 w-28 object-contain" />
         </div>
 
-        <div className="mb-3 mt-10 px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-sidebar-muted">
-          {role === "admin" ? "Amministrazione" : "Il tuo spazio"}
-        </div>
-        <nav className="flex flex-col gap-1.5" aria-label="Navigazione principale">
-          {navigation.map((item) => (
-            <button
-              key={item.id}
-              aria-current={page === item.id ? "page" : undefined}
-              className={`flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${
-                page === item.id
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-sidebar-muted hover:bg-white/8 hover:text-white"
-              }`}
-              onClick={() => {
-                onPageChange(item.id);
-                setMobileOpen(false);
-              }}
-            >
-              <Icon name={item.icon} className="size-5" />
-              {item.label}
-            </button>
+        <div className="mt-8 flex flex-col gap-6 overflow-y-auto">
+          {navigation.map((group) => (
+            <div key={group.title}>
+              <div className="mb-3 px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-sidebar-muted">
+                {group.title}
+              </div>
+              <nav className="flex flex-col gap-1.5" aria-label={group.title}>
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    aria-current={page === item.id ? "page" : undefined}
+                    className={`flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${
+                      page === item.id
+                        ? "bg-primary text-white shadow-sm"
+                        : "text-sidebar-muted hover:bg-white/8 hover:text-white"
+                    }`}
+                    onClick={() => {
+                      onPageChange(item.id);
+                      setMobileOpen(false);
+                    }}
+                  >
+                    <Icon name={item.icon} className="size-5" />
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
           ))}
-        </nav>
+        </div>
 
         <div className="mt-auto rounded-xl border border-white/10 bg-white/5 p-3">
           <div className="flex items-center gap-3">
@@ -91,8 +126,31 @@ export function AppShell({
               </div>
             </div>
           </div>
+          <div className="mt-3 grid gap-1 border-t border-white/10 pt-2">
+            <button
+              type="button"
+              onClick={() => setPasswordDialog("change")}
+              className="min-h-9 rounded-md px-2 text-left text-xs font-semibold text-sidebar-muted transition hover:bg-white/8 hover:text-white"
+            >
+              Cambia password
+            </button>
+            <button
+              type="button"
+              onClick={() => setPasswordDialog("forgot")}
+              className="min-h-9 rounded-md px-2 text-left text-xs font-semibold text-sidebar-muted transition hover:bg-white/8 hover:text-white"
+            >
+              Password dimenticata
+            </button>
+          </div>
         </div>
       </aside>
+
+      {passwordDialog === "change" && (
+        <ChangePasswordDialog role={role} id={userId} name={userName} onClose={() => setPasswordDialog(null)} />
+      )}
+      {passwordDialog === "forgot" && (
+        <ForgotPasswordDialog role={role} id={userId} name={userName} onClose={() => setPasswordDialog(null)} />
+      )}
 
       <main className="min-h-screen min-w-0 flex-1">
         <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-border bg-surface/95 px-4 backdrop-blur sm:px-7 lg:px-10">

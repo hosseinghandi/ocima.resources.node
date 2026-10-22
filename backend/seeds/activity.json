@@ -1,0 +1,114 @@
+[
+  {
+    "reparto": "Meccanico",
+    "attivita": [
+      "Progettazione 3D",
+      "Progettazione 2D",
+      "Convesione Matematiche",
+      "RDA commerciale",
+      "RDA taglio laser/ossitaglio",
+      "Lista particolari x lavoraz.",
+      "Disegni per lavorazioni",
+      "Assistenza assemblaggio",
+      "Supporto produzione",
+      "Trasferta",
+      "Altre attività di progettaz.",
+      "Altro"
+    ]
+  },
+  {
+    "reparto": "Elettrico",
+    "attivita": [
+      "Progettazione armadio",
+      "Progettazione bordo",
+      "Progettazione pneumatica",
+      "Progettazione oleodinamica",
+      "Progettazione idraulica",
+      "RDA elettrico",
+      "RDA pneumatico",
+      "RDA oleodinamico",
+      "RDA idraulico",
+      "Assistenza cablaggio el.",
+      "Assistenza cablaggio pn.",
+      "Assistenza cablaggio ol.",
+      "Assistenza cablaggio id.",
+      "Trasferta",
+      "Altre attività di progettaz.",
+      "Altro"
+    ]
+  },
+  {
+    "reparto": "Documentazione",
+    "attivita": [
+      "Manuale d'Istruzioni",
+      "Lista Ricambi",
+      "Certificazione CE",
+      "Machine Ledger",
+      "Doc. per consegna",
+      "Foto/video",
+      "Trasferta",
+      "Redazione Offerta",
+      "Altre attività documentaz.",
+      "Altro"
+    ]
+  },
+  {
+    "reparto": "Software",
+    "attivita": [
+      "Progettazione software",
+      "Sviluppo software",
+      "Assistenza installazione",
+      "Trasferta",
+      "Altre attività software",
+      "Altro"
+    ]
+  },
+  {
+    "reparto": "Officina_Elettrica",
+    "attivita": [
+      "Armadio elettrico",
+      "Cablaggio bordo macchina",
+      "Lavorazione su m.u.",
+      "Assemblaggio meccanico",
+      "Oleodinamica",
+      "Idraulica",
+      "Pneumatica",
+      "Trasferta",
+      "Smontaggio, pulizia, imbal.",
+      "Controllo e smist. Mater.",
+      "Carpenteria",
+      "Manutenzione imp. Aziend.",
+      "Preparazione materiale",
+      "Targhe CE/Quadro",
+      "Rete",
+      "Altro"
+    ]
+  },
+  {
+    "reparto": "Officina_Meccanica",
+    "attivita": [
+      "Controllo disegni",
+      "Taglio",
+      "Saldatura",
+      "Fresatura",
+      "Tornitura",
+      "Aggiustaggio",
+      "Elettroerosione",
+      "Rettifica",
+      "Tempra",
+      "Trattamenti Superficiali",
+      "Altro"
+    ]
+  },
+  {
+    "reparto": "Assemb_Meccanico",
+    "attivita": [
+      "Preparazione materiale",
+      "Assemblaggio bordo macchina",
+      "Lavorazione su m.u.",
+      "Trasferta",
+      "Smontaggio, pulizia, imbal.",
+      "Altro"
+    ]
+  }
+]

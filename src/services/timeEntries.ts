@@ -10,12 +10,15 @@ async function readError(response: Response) {
 }
 
 export async function getTimeEntries(
-  month: string,
+  filter: { month?: string; employeeId?: number },
   signal?: AbortSignal,
 ): Promise<TimeEntry[]> {
-  const response = await fetch(`/api/time-entries?month=${encodeURIComponent(month)}`, {
-    signal,
-  });
+  const params = new URLSearchParams();
+  if (filter.month) params.set("month", filter.month);
+  if (filter.employeeId !== undefined) {
+    params.set("employeeId", String(filter.employeeId));
+  }
+  const response = await fetch(`/api/time-entries?${params}`, { signal });
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as TimeEntry[];
 }

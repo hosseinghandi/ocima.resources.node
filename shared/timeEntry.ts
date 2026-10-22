@@ -1,5 +1,6 @@
 export interface TimeEntry {
   id: number;
+  employeeId: number;
   date: string;
   project: string;
   activity: string;

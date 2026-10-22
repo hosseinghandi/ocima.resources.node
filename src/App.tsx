@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { AppShell } from "./components/AppShell";
 import { HoursPage } from "./pages/HoursPage";
 import { SummaryPage } from "./pages/SummaryPage";
-import { AdminPage } from "./pages/AdminPage";
+import { AnalysisPage } from "./pages/AnalysisPage";
+import { EmployeesPage } from "./pages/EmployeesPage";
+import { EmployeeActivityPage } from "./pages/EmployeeActivityPage";
+import { CommessePage } from "./pages/CommessePage";
 import { AuthPage } from "./pages/AuthPage";
-import { demoEmployees, getDemoTimeEntries, type Employee } from "./demoData";
-import { getTimeEntries } from "./services/timeEntries";
-import type { TimeEntry } from "../shared/timeEntry";
+import { useEmployees } from "./hooks/useEmployees";
+import { useEntryData } from "./hooks/useEntryData";
+import type { CreateTimeEntryInput, TimeEntry } from "../shared/timeEntry";
+import type { Session } from "../shared/people";
 
-export type Page = "employees" | "reports" | "hours" | "summary";
+export type Page = "employees" | "activity" | "reports" | "commesse" | "hours" | "summary";
 export type UserRole = "admin" | "employee";
 
 function currentMonth() {
@@ -16,112 +20,78 @@ function currentMonth() {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function EmployeeHours({
+  employeeId,
+  onSave,
+}: {
+  employeeId: number;
+  onSave: (input: CreateTimeEntryInput) => Promise<TimeEntry>;
+}) {
+  const { employees, loading, error } = useEmployees();
+  const employee = employees.find((item) => item.id === employeeId);
+  if (!employee) {
+    return (
+      <p className="rounded-xl border border-border bg-white p-6 text-sm text-ink-secondary">
+        {loading ? "Caricamento profilo..." : error || "Profilo dipendente non trovato."}
+      </p>
+    );
+  }
+  return <HoursPage employee={employee} onSave={onSave} />;
+}
+
 export default function App() {
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [page, setPage] = useState<Page>("employees");
-  const [employees, setEmployees] = useState<Employee[]>(demoEmployees);
-  const [employeeId, setEmployeeId] = useState(demoEmployees[0].id);
   const [month, setMonth] = useState(currentMonth);
-  const [entries, setEntries] = useState<TimeEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const role = session?.role ?? null;
+  const entryData = useEntryData(month, role === "employee", session?.id ?? null);
 
-  const refreshEntries = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const result = await getTimeEntries(month, signal);
-      setEntries(result.length > 0 ? result : getDemoTimeEntries(employeeId, month));
-      setError("");
-    } catch (cause) {
-      if (cause instanceof DOMException && cause.name === "AbortError") return;
-      setEntries(getDemoTimeEntries(employeeId, month));
-      setError(cause instanceof Error ? cause.message : "Impossibile caricare le ore.");
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, [employeeId, month]);
-
-  useEffect(() => {
-    if (role !== "employee") return;
-    const controller = new AbortController();
-    getTimeEntries(month, controller.signal)
-      .then((result) => {
-        setEntries(result.length > 0 ? result : getDemoTimeEntries(employeeId, month));
-        setError("");
-      })
-      .catch((cause: unknown) => {
-        if (cause instanceof DOMException && cause.name === "AbortError") return;
-        setEntries(getDemoTimeEntries(employeeId, month));
-        setError(cause instanceof Error ? cause.message : "Impossibile caricare le ore.");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [employeeId, month, role]);
-
-  const handleEntrySaved = (entry: TimeEntry) => {
-    if (entry.date.slice(0, 7) === month) {
-      setEntries((current) => [entry, ...current]);
-    } else {
-      setLoading(true);
-      void refreshEntries();
-    }
-  };
-
-  if (!role) {
+  if (!session) {
     return (
       <AuthPage
-        employees={employees}
-        onSignIn={(nextRole, selectedEmployeeId) => {
-          setRole(nextRole);
-          if (selectedEmployeeId) setEmployeeId(selectedEmployeeId);
-          if (nextRole === "employee") setLoading(true);
-          setPage(nextRole === "admin" ? "employees" : "hours");
-          setError("");
-        }}
-        onRegister={(employee) => {
-          setEmployees((current) => [employee, ...current]);
-          setEmployeeId(employee.id);
-          setLoading(true);
-          setRole("employee");
-          setPage("hours");
+        onSignIn={(next) => {
+          setSession(next);
+          setPage(next.role === "admin" ? "employees" : "hours");
+          entryData.clearError();
         }}
       />
     );
   }
 
-  const currentEmployee = employees.find((employee) => employee.id === employeeId) ?? employees[0];
-
   return (
     <AppShell
       page={page}
-      role={role}
-      userName={role === "admin" ? "Amministratore" : currentEmployee.name}
+      role={session.role}
+      userId={session.id}
+      userName={session.name}
       onPageChange={setPage}
       onSignOut={() => {
-        setRole(null);
-        setError("");
+        setSession(null);
+        entryData.clearError();
       }}
     >
-      {role === "admin" ? (
-        <AdminPage
-          page={page}
-          employees={employees}
-          onEmployeesChange={setEmployees}
-        />
+      {session.role === "admin" ? (
+        page === "commesse" ? (
+          <CommessePage />
+        ) : page === "activity" ? (
+          <EmployeeActivityPage />
+        ) : page === "reports" ? (
+          <AnalysisPage />
+        ) : (
+          <EmployeesPage adminId={session.id} />
+        )
       ) : (
         <>
-          {error && (
+          {entryData.error && (
             <div
               className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800"
               role="alert"
             >
-              {error}
+              {entryData.error}
               <button
                 className="ml-3 font-bold underline underline-offset-2"
                 onClick={() => {
-                  setLoading(true);
-                  void refreshEntries();
+                  void entryData.refresh().catch(() => {});
                 }}
               >
                 Riprova
@@ -129,16 +99,13 @@ export default function App() {
             </div>
           )}
           {page === "hours" ? (
-            <HoursPage onEntrySaved={handleEntrySaved} />
+            <EmployeeHours employeeId={session.id} onSave={entryData.add} />
           ) : (
             <SummaryPage
-              entries={entries}
-              loading={loading}
+              entries={entryData.entries}
+              loading={entryData.loading}
               month={month}
-              onMonthChange={(value) => {
-                setLoading(true);
-                setMonth(value);
-              }}
+              onMonthChange={setMonth}
             />
           )}
         </>

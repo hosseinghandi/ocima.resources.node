@@ -1,5 +1,6 @@
 const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 
 let apiServer;
 
@@ -17,10 +18,15 @@ async function createWindow() {
     },
   });
 
-  if (app.isPackaged) {
-    process.env.OCIMA_DATA_DIR ??= path.join(app.getPath("userData"), "data");
-    const serverPath = path.join(app.getAppPath(), "dist-server", "server.cjs");
-    const { startServer } = require(serverPath);
+  if (app.isPackaged || process.argv.includes("--production")) {
+    process.env.OCIMA_DATA_DIR = path.join(app.getPath("userData"), "data");
+    const serverPath = path.join(
+      app.getAppPath(),
+      "backend-dist",
+      "backend",
+      "runtime.js",
+    );
+    const { startServer } = await import(pathToFileURL(serverPath).href);
     const result = await startServer({
       port: 0,
       staticDirectory: path.join(app.getAppPath(), "dist"),
