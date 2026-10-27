@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, dialog } = require("electron");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
@@ -45,6 +45,7 @@ async function createWindow() {
 
 app.whenReady().then(createWindow).catch((error) => {
   console.error("Impossibile avviare Ocima Ore:", error);
+  dialog.showErrorBox("Impossibile avviare Ocima Ore", String(error?.stack ?? error));
   app.quit();
 });
 

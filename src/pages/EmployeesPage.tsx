@@ -261,7 +261,7 @@ export function EmployeesPage({ adminId }: { adminId: number }) {
         ) : (
           <>
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[820px] text-left">
+            <table className="w-full min-w-[820px] text-left [&_td]:px-3 [&_th]:px-3">
               <thead className="bg-surface-muted/70 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                 <tr>
                   <th className="px-5 py-3">Dipendente</th>
@@ -298,7 +298,7 @@ export function EmployeesPage({ adminId }: { adminId: number }) {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3.5 text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1.5">
                         <ActionButton
                           variant="reset"
                           onClick={() => setResetTarget({ role: "employee", id: item.id, name: item.name })}

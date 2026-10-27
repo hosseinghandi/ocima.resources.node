@@ -18,7 +18,7 @@ export function ActionButton({
     <button
       type="button"
       {...props}
-      className={`inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${style} ${className}`}
+      className={`inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-xs! font-bold! transition disabled:cursor-not-allowed disabled:opacity-50 ${style} ${className}`}
     >
       <Icon name={icon} className="size-3.5" />
       {children}
