@@ -54,4 +54,6 @@ export interface Session {
   role: LoginRole;
   id: number;
   name: string;
+  /** True when the account still uses the default password. */
+  mustChangePassword: boolean;
 }

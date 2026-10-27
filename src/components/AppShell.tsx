@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "./Icon";
-import { ChangePasswordDialog, ForgotPasswordDialog } from "./PasswordDialogs";
+import { ChangePasswordDialog } from "./PasswordDialogs";
 import type { Page, UserRole } from "../App";
 
 type NavIcon = "briefcase" | "chart" | "people" | "note" | "clock" | "calendar";
@@ -23,6 +23,7 @@ const adminNavigation: NavGroup[] = [
     items: [
       { id: "activity", label: "Attività dipendenti", icon: "note" },
       { id: "reports", label: "Analisi commesse", icon: "chart" },
+      { id: "leave", label: "Ferie e straordinari", icon: "calendar" },
     ],
   },
 ];
@@ -32,7 +33,8 @@ const employeeNavigation: NavGroup[] = [
     title: "Il tuo spazio",
     items: [
       { id: "hours", label: "Inserisci ore", icon: "clock" },
-      { id: "summary", label: "Riepilogo", icon: "calendar" },
+      { id: "leave", label: "Ferie e straordinari", icon: "calendar" },
+      { id: "summary", label: "Riepilogo", icon: "chart" },
     ],
   },
 ];
@@ -42,6 +44,8 @@ export function AppShell({
   role,
   userId,
   userName,
+  mustChangePassword,
+  onPasswordChanged,
   onPageChange,
   onSignOut,
   children,
@@ -50,12 +54,14 @@ export function AppShell({
   role: UserRole;
   userId: number;
   userName: string;
+  mustChangePassword: boolean;
+  onPasswordChanged: () => void;
   onPageChange: (page: Page) => void;
   onSignOut: () => void;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [passwordDialog, setPasswordDialog] = useState<"change" | "forgot" | null>(null);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(mustChangePassword);
   const navigation = role === "admin" ? adminNavigation : employeeNavigation;
   const pageLabel =
     navigation.flatMap((group) => group.items).find((item) => item.id === page)?.label ?? "Ocima";
@@ -84,7 +90,7 @@ export function AppShell({
           <img src="/logo.png" alt="Ocima" className="h-10 w-28 object-contain" />
         </div>
 
-        <div className="mt-8 flex flex-col gap-6 overflow-y-auto">
+        <div className="mt-5 flex flex-col gap-4 overflow-y-auto">
           {navigation.map((group) => (
             <div key={group.title}>
               <div className="mb-3 px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-sidebar-muted">
@@ -126,30 +132,31 @@ export function AppShell({
               </div>
             </div>
           </div>
-          <div className="mt-3 grid gap-1 border-t border-white/10 pt-2">
+          <div className="mt-3 border-t border-white/10 pt-2">
             <button
               type="button"
-              onClick={() => setPasswordDialog("change")}
-              className="min-h-9 rounded-md px-2 text-left text-xs font-semibold text-sidebar-muted transition hover:bg-white/8 hover:text-white"
+              onClick={() => setPasswordDialogOpen(true)}
+              className="min-h-10 w-full rounded-md px-2 text-left text-xs font-semibold text-sidebar-muted transition hover:bg-white/8 hover:text-white"
             >
               Cambia password
-            </button>
-            <button
-              type="button"
-              onClick={() => setPasswordDialog("forgot")}
-              className="min-h-9 rounded-md px-2 text-left text-xs font-semibold text-sidebar-muted transition hover:bg-white/8 hover:text-white"
-            >
-              Password dimenticata
             </button>
           </div>
         </div>
       </aside>
 
-      {passwordDialog === "change" && (
-        <ChangePasswordDialog role={role} id={userId} name={userName} onClose={() => setPasswordDialog(null)} />
-      )}
-      {passwordDialog === "forgot" && (
-        <ForgotPasswordDialog role={role} id={userId} name={userName} onClose={() => setPasswordDialog(null)} />
+      {passwordDialogOpen && (
+        <ChangePasswordDialog
+          role={role}
+          id={userId}
+          name={userName}
+          notice={
+            mustChangePassword
+              ? "Stai usando la password predefinita. Per la tua sicurezza devi sceglierne una nuova."
+              : undefined
+          }
+          onChanged={onPasswordChanged}
+          onClose={() => setPasswordDialogOpen(false)}
+        />
       )}
 
       <main className="min-h-screen min-w-0 flex-1">
@@ -185,7 +192,21 @@ export function AppShell({
             </button>
           </div>
         </header>
-        <div className="mx-auto w-full max-w-[1440px] p-4 sm:p-7 lg:p-10">
+        <div className="mx-auto w-full max-w-[1180px] p-3 sm:p-5 lg:p-6">
+          {mustChangePassword && (
+            <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3" role="status">
+              <p className="min-w-0 flex-1 basis-60 text-sm font-semibold text-amber-900">
+                Stai usando la password predefinita. Devi cambiarla con una password personale.
+              </p>
+              <button
+                type="button"
+                onClick={() => setPasswordDialogOpen(true)}
+                className="min-h-10 rounded-lg bg-amber-600 px-4 text-sm font-bold text-white hover:bg-amber-700"
+              >
+                Cambia ora
+              </button>
+            </div>
+          )}
           {children}
         </div>
       </main>

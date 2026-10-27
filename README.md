@@ -23,17 +23,37 @@ development, use `npm run electron:dev`.
 
 The login page lists the active employees (searchable, scrollable) or the
 administrators. Selecting a person opens a password dialog; every account
-starts with the initial password `12345678` (stored hashed with scrypt, and
+starts with the initial password from `OCIMA_DEFAULT_PASSWORD` (stored hashed with scrypt, and
 checked by the API). API routes are not yet protected by a session token.
 
-Passwords: the sidebar profile has **Cambia password** (new password of 8–64
+The initial password is not in the source: copy `.env.example` to `.env`
+(git-ignored) and set `OCIMA_DEFAULT_PASSWORD` (min. 8 characters). The API
+refuses to start creating accounts without it. The packaged desktop app bundles
+your `.env`. To start from a clean database, stop the app and delete the
+`data/` folder (or Electron's `data` folder under `%APPDATA%`); it is recreated
+from the seeds on the next launch.
+
+Passwords: anyone still using the default password is told at login
+(dialog plus an amber banner) that it must be changed. The sidebar profile has
+**Cambia password** (new password of 8–64
 characters, only letters, digits and `! @ # $ % & * _ - . ?`, and not the
 initial one). **Password dimenticata** (also on the login dialog) sends a reset
 request; an administrator sees it in the amber banner of Gestione dipendenti
 (name, request date) and uses **Reimposta password** there, confirming with
-their own password, which restores `12345678`. The person then sees a "password
+their own password, which restores the initial password. The person then sees a "password
 reimpostata" notice on the login page when clicking their profile, until they
 choose a new password. Passwords are never readable by anyone.
+
+**Ferie e straordinari**: employees record ferie and malattia (date range),
+permessi and straordinari (one day, with hours) directly, with no approval
+step, and can delete their own entries. A monthly summary shows ferie,
+permessi, ore in più and malattia hours (ferie and malattia count 8h per
+working day). Administrators see everything, filtered by employee, in
+Analisi › Ferie e straordinari. Data lives in
+`databases/leave.sqlite`. Password fields have a show/hide eye.
+
+All filters share one layout (labelled fields, "Reimposta filtri"); commessa
+searches accept Arrow keys and Enter to pick a result.
 
 The administrator's **Dipendenti** page manages the employee database (name,
 department, email, phone, status): add, edit, and delete. The logged-in
@@ -50,19 +70,14 @@ add, edit, and delete records with the fields Codice cliente, Commessa,
 Denominazione, Disegno, and Cliente. Employee entry and administrator analysis
 searches use this editable archive. Commesse are shown as the customer code
 followed by the commessa number, with the denomination in search results (for
-example, `261035-MMS-3000 MACCHINA MISCELATRICE`). Existing databases receive
-the customer codes from the supplied register once at startup. Seed records
-with all three descriptive fields empty are excluded. Existing databases
-remove these empty records once at startup; saved work-hour records are not
-deleted.
+example, `261035-MMS-3000 MACCHINA MISCELATRICE`). Seed records with all three
+descriptive fields empty are excluded.
 
-The app stores commesse, time entries, employees and administrators in separate files under
+The app stores commesse, time entries, employees, administrators and leave in separate files under
 `<Electron userData>/data/databases/` (`commesse.sqlite`,
-`time-entries.sqlite`, `employees.sqlite`, `administrators.sqlite`). Electron's `userData` directory is local to the
+`time-entries.sqlite`, `employees.sqlite`, `administrators.sqlite`, `leave.sqlite`). Electron's `userData` directory is local to the
 computer, so no cloud account or internet connection is needed for storage.
-On first launch, data in the previous `data/ocima-hours.sqlite` file is
-migrated to these separate databases and the original file is left in place
-as a backup. When running the API directly, `OCIMA_DATA_DIR` selects the data
+When running the API directly, `OCIMA_DATA_DIR` selects the data
 directory; the default is `data/`.
 
 ## Build
@@ -85,12 +100,30 @@ files are created on first app launch in Electron's application data directory
 and remain there when the application is updated or reinstalled. Uninstalling
 the app does not necessarily remove this user data.
 
+## Use from phones (local network + QR code)
+
+The server listens on all network interfaces (port 3001) and serves the built
+app, so phones and tablets on the same Wi-Fi can open it:
+
+```sh
+npm run serve   # build + start; prints "Dalla rete locale: http://<ip>:3001"
+npm run qr      # prints a QR code and saves ocima-qr.png
+```
+
+The installed desktop app does the same on port 3001. Print `ocima-qr.png` and
+share it: scanning it opens the app on the phone. Use the PC's Wi-Fi address
+(`ipconfig`), not the phone's. The first time, allow Windows Firewall for
+port 3001 (admin PowerShell):
+`New-NetFirewallRule -DisplayName "Ocima Ore" -Direction Inbound -Protocol TCP -LocalPort 3001 -Action Allow -Profile Private`.
+The app must be running on the PC, and the address works only on the same
+network. Set `HOST=127.0.0.1` to keep it local only.
+
 ## Structure
 
 - `src/` — React app, reusable UI components, pages, and API client
-- `shared/` — frontend/backend TypeScript data contracts
-- `backend/` — API entry point, Express app, routes, database setup, and seed data
+- `backend/` — API server (`server.ts`), `routes/`, `db/` (schema, migrations, seeds), `paths/` (data directory), `lib/` (validation, errors, password hashing), and `contracts/` (TypeScript types and rules shared with the frontend)
 - `backend-dist/` — compiled backend output
 - `src/hooks/` — client-side commesse and time-entry data operations
+- `src/utils/` — helpers: `format.ts` (dates and hours), `leave.ts` (leave calculations), `pdf.ts` (PDF export)
 - `electron/` — Electron main process
 - `public/` — static brand assets

@@ -1,4 +1,4 @@
-import type { CreateTimeEntryInput, TimeEntry } from "../../shared/timeEntry";
+import type { CreateTimeEntryInput, TimeEntry } from "../../backend/contracts/timeEntry";
 
 async function readError(response: Response) {
   const body: unknown = await response.json().catch(() => null);
@@ -33,4 +33,28 @@ export async function createTimeEntry(
   });
   if (!response.ok) throw new Error(await readError(response));
   return (await response.json()) as TimeEntry;
+}
+
+export async function updateTimeEntry(
+  id: number,
+  input: CreateTimeEntryInput,
+): Promise<TimeEntry> {
+  const response = await fetch(`/api/time-entries/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  return (await response.json()) as TimeEntry;
+}
+
+export async function deleteTimeEntry(
+  id: number,
+  employeeId: number,
+): Promise<void> {
+  const response = await fetch(
+    `/api/time-entries/${id}?employeeId=${employeeId}`,
+    { method: "DELETE" },
+  );
+  if (!response.ok) throw new Error(await readError(response));
 }

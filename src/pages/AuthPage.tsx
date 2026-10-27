@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { PasswordInput } from "../components/PasswordInput";
 import { Icon } from "../components/Icon";
 import { ForgotPasswordDialog } from "../components/PasswordDialogs";
 import { useEmployees } from "../hooks/useEmployees";
 import { getAdministrators, login } from "../services/people";
-import { departmentLabel } from "../../shared/activities";
-import { formatDateTime } from "../utils";
-import type { Administrator, LoginRole, Session } from "../../shared/people";
+import { departmentLabel } from "../../backend/contracts/activities";
+import { formatDateTime } from "../utils/format";
+import type { Administrator, LoginRole, Session } from "../../backend/contracts/people";
 
 interface Person {
   id: number;
@@ -67,7 +68,7 @@ export function AuthPage({ onSignIn }: { onSignIn: (session: Session) => void })
   const error = role === "admin" ? adminsError : employeesError;
 
   return (
-    <main className="min-h-dvh bg-white lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)]">
+    <main className="min-h-dvh bg-white lg:grid lg:grid-cols-[minmax(0,0.8fr)_minmax(520px,1fr)]">
       <section className="relative hidden overflow-hidden bg-[#17251d] px-12 py-10 text-white lg:flex lg:flex-col xl:px-20">
         <div className="relative z-10">
           <img src="/logo.png" alt="Ocima" className="h-auto w-28 max-w-full object-contain" />
@@ -91,7 +92,7 @@ export function AuthPage({ onSignIn }: { onSignIn: (session: Session) => void })
         <div className="flex items-center gap-3 lg:hidden">
           <img src="/logo.png" alt="Ocima" className="h-10 w-20 object-contain" />
         </div>
-        <div className="mx-auto my-auto w-full max-w-[440px] py-6">
+        <div className="mx-auto my-auto w-full max-w-[560px] py-6">
           <div className="mb-6">
             <p className="text-sm font-bold text-primary">Bentornato</p>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-ink">Accedi al tuo spazio</h2>
@@ -119,19 +120,23 @@ export function AuthPage({ onSignIn }: { onSignIn: (session: Session) => void })
             ))}
           </div>
 
-          {role === "employee" && (
-            <label className="relative mb-3 block">
-              <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cerca il tuo nome..."
-                aria-label="Cerca dipendente"
-                className="min-h-11 w-full rounded-lg border border-border bg-surface-muted/60 pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
-              />
-            </label>
-          )}
+          <label className="relative mb-3 block">
+            <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && people.length > 0) {
+                  event.preventDefault();
+                  setSelected(people[0]);
+                }
+              }}
+              placeholder={role === "admin" ? "Cerca amministratore..." : "Cerca il tuo nome..."}
+              aria-label={role === "admin" ? "Cerca amministratore" : "Cerca dipendente"}
+              className="min-h-12 w-full rounded-lg border border-border bg-surface-muted/60 pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+            />
+          </label>
 
           {error && (
             <p role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-red-50 px-3.5 py-2.5 text-sm font-semibold text-red-700">
@@ -146,7 +151,7 @@ export function AuthPage({ onSignIn }: { onSignIn: (session: Session) => void })
 
           <ul
             aria-label={role === "admin" ? "Elenco amministratori" : "Elenco dipendenti"}
-            className="max-h-[min(22rem,calc(100dvh-24rem))] min-h-32 divide-y divide-border overflow-y-auto overscroll-contain rounded-xl border border-border bg-white"
+            className="h-[min(30rem,calc(100dvh-23rem))] min-h-64 divide-y divide-border overflow-y-auto overscroll-contain rounded-xl border border-border bg-white"
           >
             {loading ? (
               <li className="px-4 py-8 text-center text-sm text-ink-secondary">Caricamento...</li>
@@ -160,13 +165,16 @@ export function AuthPage({ onSignIn }: { onSignIn: (session: Session) => void })
                     onClick={() => setSelected(person)}
                     className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2 text-left transition hover:bg-primary-tint/50 focus-visible:bg-primary-tint/50 focus-visible:outline-none"
                   >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary-tint text-xs font-extrabold text-primary-dark">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-tint text-xs font-extrabold text-primary-dark">
                       {initials(person.name)}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold text-ink">{person.name}</span>
                       <span className="block truncate text-xs text-ink-muted">{person.detail}</span>
                     </span>
+                    {person.passwordResetAt && (
+                      <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">Password reimpostata</span>
+                    )}
                     <Icon name="chevron" className="size-4 shrink-0 text-ink-muted" />
                   </button>
                 </li>
@@ -252,15 +260,14 @@ function PasswordDialog({
         <form onSubmit={(event) => void submit(event)} className="mt-6 space-y-4">
           {person.passwordResetAt && (
             <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm font-semibold text-amber-900">
-              La tua password è stata reimpostata dall’amministratore il {formatDateTime(person.passwordResetAt)}. Accedi con la password iniziale <span className="font-extrabold">12345678</span>, poi cambiala da “Cambia password”.
+              La tua password è stata reimpostata dall’amministratore il {formatDateTime(person.passwordResetAt)}. Accedi con la password iniziale, poi cambiala da “Cambia password”.
             </p>
           )}
           <label className="block text-sm font-semibold text-ink-secondary">
             Password
-            <input
+            <PasswordInput
               required
               autoFocus
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}

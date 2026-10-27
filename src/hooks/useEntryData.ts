@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import type {
   CreateTimeEntryInput,
   TimeEntry,
-} from "../../shared/timeEntry";
+} from "../../backend/contracts/timeEntry";
 import {
   createTimeEntry,
+  deleteTimeEntry,
   getTimeEntries,
+  updateTimeEntry,
 } from "../services/timeEntries";
 
 export function useEntryData(
@@ -100,11 +102,31 @@ export function useEntryData(
     [month],
   );
 
+  const update = useCallback(
+    async (id: number, input: CreateTimeEntryInput) => {
+      const saved = await updateTimeEntry(id, input);
+      setEntries((current) =>
+        saved.date.slice(0, 7) === month
+          ? current.map((item) => (item.id === id ? saved : item))
+          : current.filter((item) => item.id !== id),
+      );
+      return saved;
+    },
+    [month],
+  );
+
+  const remove = useCallback(async (entry: TimeEntry) => {
+    await deleteTimeEntry(entry.id, entry.employeeId);
+    setEntries((current) => current.filter((item) => item.id !== entry.id));
+  }, []);
+
   return {
     entries,
     loading: active && (loading || loadedKey !== key),
     error,
     add,
+    update,
+    remove,
     refresh,
     clearError: () => setError(""),
   };

@@ -23,5 +23,3 @@ export const administratorsSeed: { name: string }[] = [
   { name: "Raffaele Amico" },
   { name: "Vincenzo Casone" },
 ];
-
-export { DEFAULT_PASSWORD } from "../../shared/password.js";

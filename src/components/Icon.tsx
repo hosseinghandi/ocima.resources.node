@@ -59,6 +59,13 @@ const paths = {
       <path d="m16 4 4 4M4 20l4-.8L19 8a2.1 2.1 0 0 0-3-3L5 16l-1 4Z" />
     </>
   ),
+  trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
+  key: (
+    <>
+      <circle cx="8" cy="15" r="4" />
+      <path d="m11 12 9-9M16 7l3 3" />
+    </>
+  ),
   arrow: <path d="M5 12h14m-7-7 7 7-7 7" />,
   close: <path d="m18 6-12 12M6 6l12 12" />,
   user: (

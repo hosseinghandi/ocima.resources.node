@@ -1,4 +1,4 @@
-import type { TimeEntry } from "../../shared/timeEntry";
+import type { TimeEntry } from "../../backend/contracts/timeEntry";
 import { Icon } from "./Icon";
 
 export function SummaryCards({ entries }: { entries: TimeEntry[] }) {
@@ -33,7 +33,7 @@ export function SummaryCards({ entries }: { entries: TimeEntry[] }) {
       {metrics.map((metric) => (
         <article
           key={metric.label}
-          className={`rounded-xl border p-5 ${
+          className={`rounded-xl border p-4 ${
             metric.primary
               ? "border-primary bg-primary text-white shadow-md shadow-primary/10"
               : "border-border bg-surface text-ink shadow-card"
@@ -48,7 +48,7 @@ export function SummaryCards({ entries }: { entries: TimeEntry[] }) {
               className={`size-5 ${metric.primary ? "text-white/80" : "text-primary"}`}
             />
           </div>
-          <div className="mt-4 text-3xl font-extrabold tracking-tight">
+          <div className="mt-2 text-2xl font-extrabold tracking-tight">
             {metric.value}
           </div>
           <div className={`mt-1 text-xs ${metric.primary ? "text-white/75" : "text-ink-muted"}`}>

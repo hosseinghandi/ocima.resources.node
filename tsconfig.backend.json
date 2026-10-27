@@ -5,7 +5,7 @@
     "moduleResolution": "nodenext",
     "resolveJsonModule": true,
     "types": ["node"],
-    "rootDir": ".",
+    "rootDir": "backend",
     "outDir": "backend-dist",
     "strict": true,
     "skipLibCheck": true,
@@ -14,5 +14,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["backend/**/*.ts", "shared/**/*.ts"]
+  "include": ["backend/**/*.ts"]
 }

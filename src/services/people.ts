@@ -7,7 +7,7 @@ import type {
   LoginRole,
   ResetPasswordRequest,
   Session,
-} from "../../shared/people";
+} from "../../backend/contracts/people";
 
 async function readError(response: Response): Promise<string> {
   const body: unknown = await response.json().catch(() => null);
@@ -18,13 +18,13 @@ async function readError(response: Response): Promise<string> {
   return `Richiesta non riuscita (${response.status}).`;
 }
 
-async function send<T>(url: string, init?: RequestInit): Promise<T> {
+export async function send<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   if (!response.ok) throw new Error(await readError(response));
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
 
-function jsonInit(method: string, body: unknown): RequestInit {
+export function jsonInit(method: string, body: unknown): RequestInit {
   return {
     method,
     headers: { "Content-Type": "application/json" },

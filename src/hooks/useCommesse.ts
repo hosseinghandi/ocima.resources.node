@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Commessa, CommesseInput } from "../../shared/commessa";
+import type { Commessa, CommesseInput } from "../../backend/contracts/commessa";
 import {
   createCommessa,
   deleteCommessa,

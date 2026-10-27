@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { DepartmentActivities } from "../../shared/activities";
+import type { DepartmentActivities } from "../../backend/contracts/activities";
 
 export function useActivities() {
   const [catalog, setCatalog] = useState<DepartmentActivities[]>([]);

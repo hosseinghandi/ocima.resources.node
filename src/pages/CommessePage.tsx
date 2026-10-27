@@ -1,11 +1,13 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Icon } from "../components/Icon";
+import { ActionButton } from "../components/ActionButton";
+import { FilterField, FilterPanel, filterFieldClass } from "../components/FilterPanel";
 import { useCommesse } from "../hooks/useCommesse";
-import type { Commessa } from "../../shared/commessa";
+import type { Commessa } from "../../backend/contracts/commessa";
 import {
   commessaSearchText,
   formatCommessaCode,
-} from "../../shared/commessa";
+} from "../../backend/contracts/commessa";
 
 const inputClass =
   "mt-1.5 min-h-11 w-full rounded-lg border border-border-strong bg-white px-3 text-sm font-medium text-ink outline-none focus:border-primary focus:ring-4 focus:ring-primary/10";
@@ -22,16 +24,28 @@ export function CommessePage() {
     clearError,
   } = useCommesse();
   const [query, setQuery] = useState("");
+  const [client, setClient] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [editing, setEditing] = useState<Commessa | null>(null);
 
+  const clients = useMemo(
+    () =>
+      Array.from(new Set(commesse.map((item) => item.cliente).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b, "it"),
+      ),
+    [commesse],
+  );
+
   const filteredCommesse = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("it");
-    if (!normalized) return commesse;
-    return commesse.filter((item) => commessaSearchText(item).includes(normalized));
-  }, [commesse, query]);
+    return commesse.filter(
+      (item) =>
+        (!client || item.cliente === client) &&
+        (!normalized || commessaSearchText(item).includes(normalized)),
+    );
+  }, [commesse, query, client]);
 
   async function handleSave(input: Omit<Commessa, "id">) {
     setSaving(true);
@@ -65,13 +79,13 @@ export function CommessePage() {
   }
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-primary">
             Spazio amministratore
           </p>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
+          <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-ink sm:text-2xl">
             Commesse
           </h1>
           <p className="mt-1 text-sm text-ink-secondary">
@@ -117,6 +131,28 @@ export function CommessePage() {
         </div>
       )}
 
+      <FilterPanel active={Boolean(query || client)} onReset={() => { setQuery(""); setClient(""); }}>
+        <FilterField label="Commessa (codice, denominazione, disegno o cliente)" className="sm:col-span-2">
+          <span className="relative block">
+            <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Es. 261035 o MISCELATRICE"
+              aria-label="Cerca commesse"
+              className={`${filterFieldClass} pl-9`}
+            />
+          </span>
+        </FilterField>
+        <FilterField label="Cliente">
+          <select value={client} onChange={(event) => setClient(event.target.value)} className={filterFieldClass}>
+            <option value="">Tutti</option>
+            {clients.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </FilterField>
+      </FilterPanel>
+
       <section className="overflow-hidden rounded-xl border border-border bg-white shadow-card">
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
@@ -127,20 +163,6 @@ export function CommessePage() {
                 : `${filteredCommesse.length} di ${commesse.length} ${commesse.length === 1 ? "commessa" : "commesse"}`}
             </p>
           </div>
-          <label className="relative block w-full sm:w-80">
-            <Icon
-              name="search"
-              className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted"
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cerca commessa, cliente, disegno..."
-              className="min-h-10 w-full rounded-lg border border-border bg-surface-muted/60 pl-9 pr-3 text-sm outline-none focus:border-primary"
-              aria-label="Cerca commesse"
-            />
-          </label>
         </div>
 
         {loading ? (
@@ -156,7 +178,8 @@ export function CommessePage() {
             Nessuna commessa corrisponde alla ricerca.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[760px] text-left">
               <thead className="bg-surface-muted/70 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                 <tr>
@@ -184,34 +207,67 @@ export function CommessePage() {
                     <td className="px-4 py-3.5 text-sm text-ink-secondary">
                       {item.cliente || "—"}
                     </td>
-                    <td className="px-4 py-3.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearError();
-                          setEditing(item);
-                          setFormOpen(true);
-                        }}
-                        className="rounded-lg px-3 py-2 text-xs font-bold text-primary transition hover:bg-primary-tint"
-                        aria-label={`Modifica commessa ${formatCommessaCode(item)}`}
-                      >
-                        Modifica
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleRemove(item)}
-                        disabled={removingId === item.id}
-                        className="rounded-lg px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
-                        aria-label={`Elimina commessa ${formatCommessaCode(item)}`}
-                      >
-                        {removingId === item.id ? "Eliminazione..." : "Elimina"}
-                      </button>
+                    <td className="whitespace-nowrap px-4 py-3.5">
+                      <div className="flex justify-end gap-2">
+                        <ActionButton
+                          variant="edit"
+                          onClick={() => {
+                            clearError();
+                            setEditing(item);
+                            setFormOpen(true);
+                          }}
+                          aria-label={`Modifica commessa ${formatCommessaCode(item)}`}
+                        >
+                          Modifica
+                        </ActionButton>
+                        <ActionButton
+                          variant="delete"
+                          onClick={() => void handleRemove(item)}
+                          disabled={removingId === item.id}
+                          aria-label={`Elimina commessa ${formatCommessaCode(item)}`}
+                        >
+                          {removingId === item.id ? "Eliminazione..." : "Elimina"}
+                        </ActionButton>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <ul className="divide-y divide-border md:hidden">
+            {filteredCommesse.map((item) => (
+              <li key={item.id} className="px-4 py-3.5">
+                <p className="break-words text-sm font-bold text-ink">{formatCommessaCode(item)}</p>
+                <p className="mt-0.5 break-words text-sm text-ink-secondary">{item.denominazione || "—"}</p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  {[item.cliente, item.disegno && `Disegno ${item.disegno}`].filter(Boolean).join(" · ") || "—"}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <ActionButton
+                    variant="edit"
+                    onClick={() => {
+                      clearError();
+                      setEditing(item);
+                      setFormOpen(true);
+                    }}
+                    className="min-h-10 flex-1 justify-center"
+                  >
+                    Modifica
+                  </ActionButton>
+                  <ActionButton
+                    variant="delete"
+                    onClick={() => void handleRemove(item)}
+                    disabled={removingId === item.id}
+                    className="min-h-10 flex-1 justify-center"
+                  >
+                    {removingId === item.id ? "Eliminazione..." : "Elimina"}
+                  </ActionButton>
+                </div>
+              </li>
+            ))}
+          </ul>
+          </>
         )}
       </section>
 
@@ -275,7 +331,7 @@ function CommessaForm({
         role="dialog"
         aria-modal="true"
         aria-labelledby="commessa-form-title"
-        className="w-full rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-xl sm:rounded-2xl sm:p-7"
+        className="w-full rounded-t-2xl bg-white p-4 shadow-2xl sm:max-w-xl sm:rounded-2xl sm:p-5"
       >
         <div className="flex items-start justify-between gap-4">
           <div>

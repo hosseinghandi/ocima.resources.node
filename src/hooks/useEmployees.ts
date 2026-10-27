@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Employee, EmployeeInput } from "../../shared/people";
+import type { Employee, EmployeeInput } from "../../backend/contracts/people";
 import {
   createEmployee,
   deleteEmployee,

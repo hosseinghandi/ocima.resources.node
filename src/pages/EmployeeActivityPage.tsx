@@ -1,19 +1,18 @@
 import { useMemo, useState } from "react";
+import { FilterField, FilterPanel, filterFieldClass } from "../components/FilterPanel";
 import { Icon } from "../components/Icon";
 import { useActivities } from "../hooks/useActivities";
 import { useAllTimeEntries } from "../hooks/useAllTimeEntries";
 import { useCommesse } from "../hooks/useCommesse";
 import { useEmployees } from "../hooks/useEmployees";
-import { departmentLabel } from "../../shared/activities";
+import { departmentLabel } from "../../backend/contracts/activities";
 import {
   commessaSearchText,
   formatCommessaCode,
   formatCommessaLabel,
-} from "../../shared/commessa";
-import { downloadCsv, formatDate, formatHours } from "../utils";
-
-const fieldClass =
-  "mt-1.5 min-h-10 w-full rounded-lg border border-border-strong bg-white px-3 text-sm font-medium text-ink outline-none focus:border-primary focus:ring-4 focus:ring-primary/10";
+} from "../../backend/contracts/commessa";
+import { downloadPdf } from "../utils/pdf";
+import { formatDate, formatHours } from "../utils/format";
 
 function monthStart() {
   const today = new Date();
@@ -96,104 +95,107 @@ export function EmployeeActivityPage() {
     setCommessaQuery("");
   }
 
-  function exportCsv() {
-    downloadCsv("attivita-dipendenti.csv", [
-      ["Data", "Dipendente", "Reparto", "Commessa", "Attività", "Ore", "Note"],
-      ...filtered
-        .slice()
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .map((entry) => [
-          entry.date,
-          nameFor(entry.employeeId),
-          departmentLabel(employeeById.get(entry.employeeId)?.department ?? ""),
-          labelFor(entry.project),
-          entry.activity,
-          entry.hours,
-          entry.notes,
-        ]),
-    ]);
+  function exportPdf() {
+    const filters = [
+      `Periodo: ${from ? formatDate(from) : "inizio"} – ${to ? formatDate(to) : "oggi"}`,
+      employeeId && `Dipendente: ${nameFor(Number(employeeId))}`,
+      department && `Reparto: ${departmentLabel(department)}`,
+      activity && `Attività: ${activity}`,
+      commessaQuery.trim() && `Commessa: ${commessaQuery.trim()}`,
+    ].filter((item): item is string => Boolean(item));
+    void downloadPdf({
+      filename: `attivita-dipendenti-${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: "Attività dipendenti",
+      subtitle: "Ore registrate per dipendente",
+      filters,
+      summary: [
+        { label: "Ore totali", value: formatHours(totalHours) },
+        { label: "Registrazioni", value: String(filtered.length) },
+        { label: "Dipendenti", value: String(groups.length) },
+      ],
+      columns: ["Data", "Commessa", "Attività", "Note", "Ore"],
+      numericColumns: [4],
+      sections: groups.map((group) => ({
+        heading: `${group.employee?.name ?? "Non assegnato"}${
+          group.employee ? ` · ${departmentLabel(group.employee.department)}` : ""
+        }`,
+        total: `${formatHours(group.hours)} · ${group.days} ${group.days === 1 ? "giorno" : "giorni"}`,
+        rows: group.entries
+          .slice()
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .map((entry) => [
+            formatDate(entry.date),
+            labelFor(entry.project),
+            entry.activity,
+            entry.notes || "—",
+            formatHours(entry.hours),
+          ]),
+      })),
+    });
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-primary">Analisi</p>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Attività dipendenti</h1>
+          <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-ink sm:text-2xl">Attività dipendenti</h1>
           <p className="mt-1 text-sm text-ink-secondary">Tutte le ore registrate, con il dettaglio di ogni dipendente.</p>
         </div>
         <button
           type="button"
-          onClick={exportCsv}
+          onClick={exportPdf}
           disabled={filtered.length === 0}
-          className="flex min-h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-bold text-ink-secondary hover:bg-surface-muted disabled:opacity-50"
+          className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-bold text-ink-secondary hover:bg-surface-muted disabled:opacity-50"
         >
-          <Icon name="download" className="size-4" /> Esporta CSV
+          <Icon name="download" className="size-4" /> Esporta PDF
         </button>
       </header>
 
       {error && <p className="rounded-lg bg-red-50 px-3.5 py-2.5 text-sm font-semibold text-red-800" role="alert">{error}</p>}
 
-      <section className="rounded-xl border border-border bg-white p-4 shadow-card sm:p-5" aria-label="Filtri">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block text-xs font-semibold text-ink-secondary">
-            Dipendente
-            <select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className={fieldClass}>
-              <option value="">Tutti</option>
-              {employees.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-          </label>
-          <label className="block text-xs font-semibold text-ink-secondary">
-            Reparto
-            <select
-              value={department}
-              onChange={(event) => {
-                setDepartment(event.target.value);
-                setActivity("");
-              }}
-              className={fieldClass}
-            >
-              <option value="">Tutti</option>
-              {catalog.map((item) => <option key={item.reparto} value={item.reparto}>{departmentLabel(item.reparto)}</option>)}
-            </select>
-          </label>
-          <label className="block text-xs font-semibold text-ink-secondary">
-            Dal
-            <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className={fieldClass} />
-          </label>
-          <label className="block text-xs font-semibold text-ink-secondary">
-            Al
-            <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className={fieldClass} />
-          </label>
-          <label className="block text-xs font-semibold text-ink-secondary sm:col-span-2">
-            Commessa (codice, denominazione, disegno o cliente)
-            <input
-              type="search"
-              value={commessaQuery}
-              onChange={(event) => setCommessaQuery(event.target.value)}
-              placeholder="Es. 261035 o MISCELATRICE"
-              className={fieldClass}
-            />
-          </label>
-          <label className="block text-xs font-semibold text-ink-secondary">
-            Attività
-            <select value={activity} onChange={(event) => setActivity(event.target.value)} className={fieldClass}>
-              <option value="">Tutte</option>
-              {activityOptions.map((item) => <option key={item}>{item}</option>)}
-            </select>
-          </label>
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={reset}
-              disabled={!filtersActive}
-              className="min-h-10 w-full rounded-lg border border-border px-3 text-sm font-bold text-ink-secondary hover:bg-surface-muted disabled:opacity-50"
-            >
-              Reimposta filtri
-            </button>
-          </div>
-        </div>
-      </section>
+      <FilterPanel active={filtersActive} onReset={reset}>
+        <FilterField label="Dipendente">
+          <select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className={filterFieldClass}>
+            <option value="">Tutti</option>
+            {employees.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </FilterField>
+        <FilterField label="Reparto">
+          <select
+            value={department}
+            onChange={(event) => {
+              setDepartment(event.target.value);
+              setActivity("");
+            }}
+            className={filterFieldClass}
+          >
+            <option value="">Tutti</option>
+            {catalog.map((item) => <option key={item.reparto} value={item.reparto}>{departmentLabel(item.reparto)}</option>)}
+          </select>
+        </FilterField>
+        <FilterField label="Dal">
+          <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className={filterFieldClass} />
+        </FilterField>
+        <FilterField label="Al">
+          <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className={filterFieldClass} />
+        </FilterField>
+        <FilterField label="Commessa (codice, denominazione, disegno o cliente)" className="sm:col-span-2">
+          <input
+            type="search"
+            value={commessaQuery}
+            onChange={(event) => setCommessaQuery(event.target.value)}
+            placeholder="Es. 261035 o MISCELATRICE"
+            className={filterFieldClass}
+          />
+        </FilterField>
+        <FilterField label="Attività">
+          <select value={activity} onChange={(event) => setActivity(event.target.value)} className={filterFieldClass}>
+            <option value="">Tutte</option>
+            {activityOptions.map((item) => <option key={item}>{item}</option>)}
+          </select>
+        </FilterField>
+      </FilterPanel>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
@@ -227,7 +229,7 @@ export function EmployeeActivityPage() {
               <details key={group.id} className="group">
                 <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3.5 hover:bg-primary-tint/30 sm:px-5">
                   <Icon name="chevron" className="size-4 shrink-0 text-ink-muted transition group-open:rotate-90" />
-                  <span className="min-w-0 flex-1">
+                  <span className="min-w-0 flex-1 basis-40">
                     <span className="block truncate text-sm font-bold text-ink">{group.employee?.name ?? "Dipendente non assegnato"}</span>
                     <span className="block truncate text-xs text-ink-secondary">
                       {group.employee ? departmentLabel(group.employee.department) : "Registrazioni precedenti"}
@@ -235,31 +237,32 @@ export function EmployeeActivityPage() {
                   </span>
                   <span className="text-xs text-ink-secondary">{group.days} {group.days === 1 ? "giorno" : "giorni"}</span>
                   <span className="text-xs text-ink-secondary">{group.entries.length} reg.</span>
-                  <span className="w-20 text-right text-sm font-extrabold text-ink">{formatHours(group.hours)}</span>
+                  <span className="w-16 text-right text-sm font-extrabold text-ink sm:w-20">{formatHours(group.hours)}</span>
                 </summary>
-                <div className="overflow-x-auto border-t border-border bg-surface-muted/30">
-                  <table className="w-full min-w-[640px] text-left text-sm">
-                    <thead className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-                      <tr>
-                        <th className="px-5 py-2">Data</th>
-                        <th className="px-3 py-2">Commessa</th>
-                        <th className="px-3 py-2">Attività</th>
-                        <th className="px-3 py-2 text-right">Ore</th>
-                        <th className="px-5 py-2">Note</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {group.entries.map((entry) => (
-                        <tr key={entry.id} className="align-top">
-                          <td className="whitespace-nowrap px-5 py-2 text-ink-secondary">{formatDate(entry.date)}</td>
-                          <td className="px-3 py-2 font-semibold text-ink">{labelFor(entry.project)}</td>
-                          <td className="px-3 py-2 text-ink">{entry.activity}</td>
-                          <td className="whitespace-nowrap px-3 py-2 text-right font-extrabold text-ink">{formatHours(entry.hours)}</td>
-                          <td className="px-5 py-2 text-xs text-ink-secondary">{entry.notes || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="border-t border-border bg-surface-muted/30">
+                  <div className="hidden grid-cols-[110px_minmax(0,1.6fr)_minmax(0,1fr)_70px] gap-x-4 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-ink-muted sm:grid">
+                    <span>Data</span>
+                    <span>Commessa</span>
+                    <span>Attività</span>
+                    <span className="text-right">Ore</span>
+                  </div>
+                  <ul className="divide-y divide-border">
+                    {group.entries.map((entry) => (
+                      <li key={entry.id} className="px-4 py-3 sm:px-5">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-0.5 sm:grid-cols-[110px_minmax(0,1.6fr)_minmax(0,1fr)_70px]">
+                          <span className="text-xs text-ink-secondary sm:text-sm">{formatDate(entry.date)}</span>
+                          <span className="text-right text-sm font-extrabold text-ink sm:order-last">{formatHours(entry.hours)}</span>
+                          <span className="col-span-2 break-words text-sm font-semibold text-ink sm:col-span-1">{labelFor(entry.project)}</span>
+                          <span className="col-span-2 text-sm text-ink sm:col-span-1">{entry.activity}</span>
+                        </div>
+                        {entry.notes && (
+                          <p className="mt-1.5 break-words text-xs text-ink-secondary sm:pl-[126px]">
+                            <span className="font-bold text-ink-muted">Note:</span> {entry.notes}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </details>
             ))}

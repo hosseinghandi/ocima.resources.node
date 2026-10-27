@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Icon } from "../components/Icon";
+import { ActionButton } from "../components/ActionButton";
+import { FilterField, FilterPanel, filterFieldClass } from "../components/FilterPanel";
 import { AdminResetDialog } from "../components/PasswordDialogs";
 import { getAdministrators } from "../services/people";
-import { formatDateTime } from "../utils";
+import { formatDateTime } from "../utils/format";
 import { useAllTimeEntries } from "../hooks/useAllTimeEntries";
 import { useEmployees } from "../hooks/useEmployees";
 import { useActivities } from "../hooks/useActivities";
-import { departmentLabel } from "../../shared/activities";
+import { departmentLabel } from "../../backend/contracts/activities";
 import {
   employeeStatuses,
   type Administrator,
@@ -14,7 +16,7 @@ import {
   type EmployeeInput,
   type EmployeeStatus,
   type LoginRole,
-} from "../../shared/people";
+} from "../../backend/contracts/people";
 
 const inputClass =
   "mt-1.5 min-h-11 w-full rounded-lg border border-border-strong bg-white px-3 text-sm font-medium text-ink outline-none focus:border-primary focus:ring-4 focus:ring-primary/10";
@@ -75,6 +77,8 @@ export function EmployeesPage({ adminId }: { adminId: number }) {
       .map((item) => ({ role: "admin" as LoginRole, id: item.id, name: item.name, at: item.resetRequestedAt, detail: "Amministratore" })),
   ].sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
   const [query, setQuery] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
   const [saving, setSaving] = useState(false);
@@ -96,11 +100,16 @@ export function EmployeesPage({ adminId }: { adminId: number }) {
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("it");
-    if (!normalized) return employees;
-    return employees.filter((item) =>
-      `${item.name} ${departmentLabel(item.department)} ${item.email} ${item.phone}`.toLocaleLowerCase("it").includes(normalized),
+    return employees.filter(
+      (item) =>
+        (!departmentFilter || item.department === departmentFilter) &&
+        (!statusFilter || item.status === statusFilter) &&
+        (!normalized ||
+          `${item.name} ${departmentLabel(item.department)} ${item.email} ${item.phone}`
+            .toLocaleLowerCase("it")
+            .includes(normalized)),
     );
-  }, [employees, query]);
+  }, [employees, query, departmentFilter, statusFilter]);
 
   async function handleSave(input: EmployeeInput) {
     setSaving(true);
@@ -129,11 +138,11 @@ export function EmployeesPage({ adminId }: { adminId: number }) {
   }
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-primary">Spazio amministratore</p>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Dipendenti</h1>
+          <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-ink sm:text-2xl">Dipendenti</h1>
           <p className="mt-1 text-sm text-ink-secondary">
             Archivio dei dipendenti: i dati compilano in automatico l’inserimento ore.
           </p>
@@ -185,18 +194,53 @@ export function EmployeesPage({ adminId }: { adminId: number }) {
                     {request.detail} · richiesta del {request.at ? formatDateTime(request.at) : "—"}
                   </span>
                 </span>
-                <button
-                  type="button"
+                <ActionButton
+                  variant="reset"
                   onClick={() => setResetTarget({ role: request.role, id: request.id, name: request.name })}
-                  className="min-h-10 rounded-lg bg-amber-600 px-4 text-sm font-bold text-white transition hover:bg-amber-700"
+                  className="min-h-10 text-sm"
                 >
                   Reimposta password
-                </button>
+                </ActionButton>
               </li>
             ))}
           </ul>
         </section>
       )}
+
+      <FilterPanel
+        active={Boolean(query || departmentFilter || statusFilter)}
+        onReset={() => {
+          setQuery("");
+          setDepartmentFilter("");
+          setStatusFilter("");
+        }}
+      >
+        <FilterField label="Dipendente (nome, email o telefono)" className="sm:col-span-2">
+          <span className="relative block">
+            <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Es. Rossi"
+              aria-label="Cerca dipendente"
+              className={`${filterFieldClass} pl-9`}
+            />
+          </span>
+        </FilterField>
+        <FilterField label="Reparto">
+          <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)} className={filterFieldClass}>
+            <option value="">Tutti</option>
+            {departments.map((item) => <option key={item} value={item}>{departmentLabel(item)}</option>)}
+          </select>
+        </FilterField>
+        <FilterField label="Stato">
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className={filterFieldClass}>
+            <option value="">Tutti</option>
+            {employeeStatuses.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </FilterField>
+      </FilterPanel>
 
       <section className="overflow-hidden rounded-xl border border-border bg-white shadow-card">
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
@@ -206,17 +250,6 @@ export function EmployeesPage({ adminId }: { adminId: number }) {
               {loading ? "Caricamento..." : `${filtered.length} di ${employees.length} profili`}
             </p>
           </div>
-          <label className="relative block w-full sm:w-72">
-            <Icon name="search" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Cerca dipendente o reparto..."
-              aria-label="Cerca dipendente"
-              className="min-h-10 w-full rounded-lg border border-border bg-surface-muted/60 pl-9 pr-3 text-sm outline-none focus:border-primary"
-            />
-          </label>
         </div>
 
         {loading ? (
@@ -226,7 +259,8 @@ export function EmployeesPage({ adminId }: { adminId: number }) {
         ) : filtered.length === 0 ? (
           <p className="p-8 text-center text-sm text-ink-secondary">Nessun dipendente corrisponde alla ricerca.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[820px] text-left">
               <thead className="bg-surface-muted/70 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
                 <tr>
@@ -264,41 +298,94 @@ export function EmployeesPage({ adminId }: { adminId: number }) {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setResetTarget({ role: "employee", id: item.id, name: item.name })}
-                        aria-label={`Reimposta password di ${item.name}`}
-                        className={`rounded-lg px-3 py-2 text-xs font-bold transition hover:bg-amber-50 ${item.resetRequested ? "text-amber-700" : "text-ink-secondary"}`}
-                      >
-                        Reimposta password
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearError();
-                          setEditing(item);
-                          setFormOpen(true);
-                        }}
-                        aria-label={`Modifica ${item.name}`}
-                        className="rounded-lg px-3 py-2 text-xs font-bold text-primary transition hover:bg-primary-tint"
-                      >
-                        Modifica
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleRemove(item)}
-                        disabled={removingId === item.id}
-                        aria-label={`Elimina ${item.name}`}
-                        className="rounded-lg px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {removingId === item.id ? "Eliminazione..." : "Elimina"}
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <ActionButton
+                          variant="reset"
+                          onClick={() => setResetTarget({ role: "employee", id: item.id, name: item.name })}
+                          aria-label={`Reimposta password di ${item.name}`}
+                        >
+                          Reimposta password
+                        </ActionButton>
+                        <ActionButton
+                          variant="edit"
+                          onClick={() => {
+                            clearError();
+                            setEditing(item);
+                            setFormOpen(true);
+                          }}
+                          aria-label={`Modifica ${item.name}`}
+                        >
+                          Modifica
+                        </ActionButton>
+                        <ActionButton
+                          variant="delete"
+                          onClick={() => void handleRemove(item)}
+                          disabled={removingId === item.id}
+                          aria-label={`Elimina ${item.name}`}
+                        >
+                          {removingId === item.id ? "Eliminazione..." : "Elimina"}
+                        </ActionButton>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <ul className="divide-y divide-border md:hidden">
+            {filtered.map((item) => (
+              <li key={item.id} className="px-4 py-3.5">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary-tint text-xs font-extrabold text-primary-dark">
+                    {initials(item.name)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-ink">{item.name}</span>
+                    <span className="block truncate text-xs text-ink-secondary">{departmentLabel(item.department)}</span>
+                  </span>
+                  <span className="shrink-0 text-sm font-extrabold text-ink">
+                    {(monthHours.get(item.id) ?? 0).toLocaleString("it-IT")} h
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <StatusBadge status={item.status} />
+                  {item.resetRequested && <span className="text-[11px] font-bold text-amber-700">Reset password richiesto</span>}
+                </div>
+                {(item.email || item.phone) && (
+                  <p className="mt-1.5 break-all text-xs text-ink-muted">{[item.email, item.phone].filter(Boolean).join(" · ")}</p>
+                )}
+                <div className="mt-2.5 grid grid-cols-3 gap-2">
+                  <ActionButton
+                    variant="reset"
+                    onClick={() => setResetTarget({ role: "employee", id: item.id, name: item.name })}
+                    className="min-h-10 justify-center px-2"
+                  >
+                    Password
+                  </ActionButton>
+                  <ActionButton
+                    variant="edit"
+                    onClick={() => {
+                      clearError();
+                      setEditing(item);
+                      setFormOpen(true);
+                    }}
+                    className="min-h-10 justify-center px-2"
+                  >
+                    Modifica
+                  </ActionButton>
+                  <ActionButton
+                    variant="delete"
+                    onClick={() => void handleRemove(item)}
+                    disabled={removingId === item.id}
+                    className="min-h-10 justify-center px-2"
+                  >
+                    Elimina
+                  </ActionButton>
+                </div>
+              </li>
+            ))}
+          </ul>
+          </>
         )}
       </section>
 
@@ -317,13 +404,12 @@ export function EmployeesPage({ adminId }: { adminId: number }) {
                 <span className="block truncate text-sm font-bold text-ink">{item.name}</span>
                 {item.resetRequested && <span className="block text-[11px] font-bold text-amber-700">Reset password richiesto</span>}
               </span>
-              <button
-                type="button"
+              <ActionButton
+                variant="reset"
                 onClick={() => setResetTarget({ role: "admin", id: item.id, name: item.name })}
-                className="rounded-lg px-3 py-2 text-xs font-bold text-ink-secondary transition hover:bg-amber-50"
               >
                 Reimposta password
-              </button>
+              </ActionButton>
             </div>
           ))}
         </div>
@@ -405,7 +491,7 @@ function EmployeeForm({
         role="dialog"
         aria-modal="true"
         aria-labelledby="employee-form-title"
-        className="max-h-[94dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-xl sm:rounded-2xl sm:p-7"
+        className="max-h-[94dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 shadow-2xl sm:max-w-xl sm:rounded-2xl sm:p-5"
       >
         <div className="flex items-start justify-between gap-4">
           <div>

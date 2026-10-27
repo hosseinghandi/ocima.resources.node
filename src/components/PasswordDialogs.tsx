@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { passwordRules, validateNewPassword } from "../../shared/password";
-import type { LoginRole } from "../../shared/people";
+import { PasswordInput } from "./PasswordInput";
+import { passwordRules, validateNewPassword } from "../../backend/contracts/password";
+import type { LoginRole } from "../../backend/contracts/people";
 import { changePassword, forgotPassword, resetPassword } from "../services/people";
 
 const inputClass =
@@ -96,11 +97,15 @@ export function ChangePasswordDialog({
   role,
   id,
   name,
+  notice,
+  onChanged,
   onClose,
 }: {
   role: LoginRole;
   id: number;
   name: string;
+  notice?: string;
+  onChanged?: () => void;
   onClose: () => void;
 }) {
   const [current, setCurrent] = useState("");
@@ -120,6 +125,7 @@ export function ChangePasswordDialog({
     try {
       await changePassword({ role, id, currentPassword: current, newPassword: next });
       setDone(true);
+      onChanged?.();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Impossibile cambiare la password.");
     } finally {
@@ -136,17 +142,22 @@ export function ChangePasswordDialog({
         </div>
       ) : (
         <form onSubmit={(event) => void submit(event)} className="mt-5 space-y-4">
+          {notice && (
+            <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm font-semibold text-amber-900">
+              {notice}
+            </p>
+          )}
           <label className="block text-sm font-semibold text-ink-secondary">
             Password attuale
-            <input required autoFocus type="password" autoComplete="current-password" value={current} onChange={(event) => setCurrent(event.target.value)} className={inputClass} />
+            <PasswordInput required autoFocus autoComplete="current-password" value={current} onChange={(event) => setCurrent(event.target.value)} className={inputClass} />
           </label>
           <label className="block text-sm font-semibold text-ink-secondary">
             Nuova password
-            <input required type="password" autoComplete="new-password" minLength={8} maxLength={64} value={next} onChange={(event) => setNext(event.target.value)} className={inputClass} />
+            <PasswordInput required autoComplete="new-password" minLength={8} maxLength={64} value={next} onChange={(event) => setNext(event.target.value)} className={inputClass} />
           </label>
           <label className="block text-sm font-semibold text-ink-secondary">
             Conferma nuova password
-            <input required type="password" autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} className={inputClass} />
+            <PasswordInput required autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} className={inputClass} />
           </label>
           <p className="text-xs text-ink-muted">{passwordRules}</p>
           {error && <Notice tone="error">{error}</Notice>}
@@ -256,7 +267,7 @@ export function AdminResetDialog({
       <form onSubmit={(event) => void submit(event)} className="mt-5 space-y-4">
         <label className="block text-sm font-semibold text-ink-secondary">
           La tua password (amministratore)
-          <input required autoFocus type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className={inputClass} />
+          <PasswordInput required autoFocus autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} className={inputClass} />
         </label>
         {error && <Notice tone="error">{error}</Notice>}
         <Actions busy={busy} submitLabel="Reimposta" onClose={onClose} />

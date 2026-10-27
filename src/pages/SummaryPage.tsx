@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { TimeEntry } from "../../shared/timeEntry";
+import type { CreateTimeEntryInput, TimeEntry } from "../../backend/contracts/timeEntry";
 import { SummaryCards } from "../components/SummaryCards";
 import { TimeEntryList } from "../components/TimeEntryList";
 import { Icon } from "../components/Icon";
@@ -22,13 +22,19 @@ function shiftMonth(value: string, amount: number) {
 }
 
 export function SummaryPage({
+  employeeId,
   entries,
   loading,
+  onUpdate,
+  onDelete,
   month,
   onMonthChange,
 }: {
+  employeeId: number;
   entries: TimeEntry[];
   loading: boolean;
+  onUpdate: (id: number, input: CreateTimeEntryInput) => Promise<TimeEntry>;
+  onDelete: (entry: TimeEntry) => Promise<void>;
   month: string;
   onMonthChange: (month: string) => void;
 }) {
@@ -42,11 +48,11 @@ export function SummaryPage({
   );
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-4">
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-semibold text-primary">Attività registrate</p>
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">
+          <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-ink sm:text-2xl">
             Riepilogo
           </h1>
           <p className="mt-1 text-sm text-ink-secondary">
@@ -160,7 +166,13 @@ export function SummaryPage({
         </div>
       </header>
       <SummaryCards entries={entries} />
-      <TimeEntryList entries={entries} loading={loading} />
+      <TimeEntryList
+        employeeId={employeeId}
+        entries={entries}
+        loading={loading}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+      />
     </div>
   );
 }

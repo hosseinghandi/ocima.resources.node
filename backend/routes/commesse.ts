@@ -1,26 +1,20 @@
 import { Router } from "express";
 import type { DatabaseSync } from "node:sqlite";
-import type { CommesseInput, Commessa } from "../../shared/commessa.js";
-import { RequestError } from "../errors.js";
+import type { CommesseInput, Commessa } from "../contracts/commessa.js";
+import { RequestError } from "../lib/errors.js";
+import { parseBody, parseId, text, type Row } from "../lib/validate.js";
+
+const columns =
+  "id, commessa, codice_cliente, denominazione, disegno, cliente";
 
 function parseCommessa(body: unknown): CommesseInput {
-  if (typeof body !== "object" || body === null) {
-    throw new RequestError("Il corpo della richiesta non è valido.", 400);
-  }
-  const input = body as Record<string, unknown>;
-  const fields = {
-    commessa:
-      typeof input.commessa === "string" ? input.commessa.trim() : "",
-    codiceCliente:
-      typeof input.codiceCliente === "string"
-        ? input.codiceCliente.trim()
-        : "",
-    denominazione:
-      typeof input.denominazione === "string"
-        ? input.denominazione.trim()
-        : "",
-    disegno: typeof input.disegno === "string" ? input.disegno.trim() : "",
-    cliente: typeof input.cliente === "string" ? input.cliente.trim() : "",
+  const input = parseBody(body);
+  const fields: CommesseInput = {
+    commessa: text(input.commessa),
+    codiceCliente: text(input.codiceCliente),
+    denominazione: text(input.denominazione),
+    disegno: text(input.disegno),
+    cliente: text(input.cliente),
   };
 
   if (!fields.commessa || fields.commessa.length > 120) {
@@ -46,7 +40,7 @@ function parseCommessa(body: unknown): CommesseInput {
   return fields;
 }
 
-function mapCommessa(row: Record<string, unknown>): Commessa {
+function mapCommessa(row: Row): Commessa {
   return {
     id: Number(row.id),
     commessa: String(row.commessa),
@@ -57,120 +51,86 @@ function mapCommessa(row: Record<string, unknown>): Commessa {
   };
 }
 
-function parseId(value: string): number {
-  const id = Number(value);
-  if (!Number.isSafeInteger(id) || id < 1) {
-    throw new RequestError("Identificativo commessa non valido.", 400);
-  }
-  return id;
-}
-
 export function createCommesseRouter(database: DatabaseSync): Router {
   const router = Router();
+  const idError = "Identificativo commessa non valido.";
 
-  router.get("/", (_request, response, next) => {
-    try {
-      const rows = database
-        .prepare(
-          `SELECT id, commessa, codice_cliente, denominazione, disegno, cliente
-           FROM commesse ORDER BY commessa COLLATE NOCASE, id`,
-        )
-        .all();
-      response.json(
-        rows.map((row) => mapCommessa(row as Record<string, unknown>)),
-      );
-    } catch (error) {
-      next(error);
-    }
+  const find = (id: number): Commessa | undefined => {
+    const row = database
+      .prepare(`SELECT ${columns} FROM commesse WHERE id = ?`)
+      .get(id);
+    return row ? mapCommessa(row) : undefined;
+  };
+
+  router.get("/", (_request, response) => {
+    const rows = database
+      .prepare(
+        `SELECT ${columns} FROM commesse ORDER BY commessa COLLATE NOCASE, id`,
+      )
+      .all();
+    response.json(rows.map(mapCommessa));
   });
 
-  router.post("/", (request, response, next) => {
-    try {
-      const input = parseCommessa(request.body);
-      const existing = database
-        .prepare("SELECT id FROM commesse WHERE commessa = ?")
-        .get(input.commessa);
-      if (existing) {
-        throw new RequestError("Questa commessa è già presente.", 409);
-      }
-      const result = database
-        .prepare(
-          `INSERT INTO commesse
-            (commessa, codice_cliente, denominazione, disegno, cliente)
-           VALUES (?, ?, ?, ?, ?)`,
-        )
-        .run(
-          input.commessa,
-          input.codiceCliente,
-          input.denominazione,
-          input.disegno,
-          input.cliente,
-        );
-      const row = database
-        .prepare(
-          `SELECT id, commessa, codice_cliente, denominazione, disegno, cliente
-           FROM commesse WHERE id = ?`,
-        )
-        .get(Number(result.lastInsertRowid));
-      if (!row) throw new Error("La commessa non è stata salvata.");
-      response.status(201).json(mapCommessa(row as Record<string, unknown>));
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  router.put("/:id", (request, response, next) => {
-    try {
-      const id = parseId(request.params.id);
-      const input = parseCommessa(request.body);
-      const existing = database
-        .prepare("SELECT id FROM commesse WHERE id = ?")
-        .get(id);
-      if (!existing) throw new RequestError("Commessa non trovata.", 404);
-      const duplicate = database
-        .prepare("SELECT id FROM commesse WHERE commessa = ? AND id != ?")
-        .get(input.commessa, id);
-      if (duplicate) {
-        throw new RequestError("Questa commessa è già presente.", 409);
-      }
+  router.post("/", (request, response) => {
+    const input = parseCommessa(request.body);
+    if (
       database
-        .prepare(
-          `UPDATE commesse SET commessa = ?, codice_cliente = ?,
-           denominazione = ?, disegno = ?, cliente = ? WHERE id = ?`,
-        )
-        .run(
-          input.commessa,
-          input.codiceCliente,
-          input.denominazione,
-          input.disegno,
-          input.cliente,
-          id,
-        );
-      const row = database
-        .prepare(
-          `SELECT id, commessa, codice_cliente, denominazione, disegno, cliente
-           FROM commesse WHERE id = ?`,
-        )
-        .get(id);
-      if (!row) throw new Error("La commessa aggiornata non è stata trovata.");
-      response.json(mapCommessa(row as Record<string, unknown>));
-    } catch (error) {
-      next(error);
+        .prepare("SELECT 1 FROM commesse WHERE commessa = ?")
+        .get(input.commessa)
+    ) {
+      throw new RequestError("Questa commessa è già presente.", 409);
     }
+    const result = database
+      .prepare(
+        `INSERT INTO commesse
+          (commessa, codice_cliente, denominazione, disegno, cliente)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(
+        input.commessa,
+        input.codiceCliente,
+        input.denominazione,
+        input.disegno,
+        input.cliente,
+      );
+    response.status(201).json(find(Number(result.lastInsertRowid)));
   });
 
-  router.delete("/:id", (request, response, next) => {
-    try {
-      const result = database
-        .prepare("DELETE FROM commesse WHERE id = ?")
-        .run(parseId(request.params.id));
-      if (result.changes === 0) {
-        throw new RequestError("Commessa non trovata.", 404);
-      }
-      response.status(204).end();
-    } catch (error) {
-      next(error);
+  router.put("/:id", (request, response) => {
+    const id = parseId(request.params.id, idError);
+    const input = parseCommessa(request.body);
+    if (!find(id)) throw new RequestError("Commessa non trovata.", 404);
+    if (
+      database
+        .prepare("SELECT 1 FROM commesse WHERE commessa = ? AND id != ?")
+        .get(input.commessa, id)
+    ) {
+      throw new RequestError("Questa commessa è già presente.", 409);
     }
+    database
+      .prepare(
+        `UPDATE commesse SET commessa = ?, codice_cliente = ?,
+         denominazione = ?, disegno = ?, cliente = ? WHERE id = ?`,
+      )
+      .run(
+        input.commessa,
+        input.codiceCliente,
+        input.denominazione,
+        input.disegno,
+        input.cliente,
+        id,
+      );
+    response.json(find(id));
+  });
+
+  router.delete("/:id", (request, response) => {
+    const result = database
+      .prepare("DELETE FROM commesse WHERE id = ?")
+      .run(parseId(request.params.id, idError));
+    if (result.changes === 0) {
+      throw new RequestError("Commessa non trovata.", 404);
+    }
+    response.status(204).end();
   });
 
   return router;

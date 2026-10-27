@@ -1,4 +1,3 @@
-export const DEFAULT_PASSWORD = "12345678";
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 64;
 
@@ -17,9 +16,6 @@ export function validateNewPassword(password: string): string | null {
   }
   if (!allowedPattern.test(password)) {
     return "La password può contenere solo lettere, numeri e i simboli ! @ # $ % & * _ - . ?";
-  }
-  if (password === DEFAULT_PASSWORD) {
-    return "Scegli una password diversa da quella iniziale.";
   }
   return null;
 }

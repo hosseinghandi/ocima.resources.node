@@ -20,17 +20,22 @@ async function createWindow() {
 
   if (app.isPackaged || process.argv.includes("--production")) {
     process.env.OCIMA_DATA_DIR = path.join(app.getPath("userData"), "data");
+    process.env.OCIMA_ENV_FILE = path.join(app.getAppPath(), ".env");
     const serverPath = path.join(
       app.getAppPath(),
       "backend-dist",
-      "backend",
-      "runtime.js",
+      "server.js",
     );
     const { startServer } = await import(pathToFileURL(serverPath).href);
-    const result = await startServer({
-      port: 0,
-      staticDirectory: path.join(app.getAppPath(), "dist"),
-    });
+    const staticDirectory = path.join(app.getAppPath(), "dist");
+    // Fixed port so the QR code stays valid; fall back to a free one if it is taken.
+    const options = { host: "0.0.0.0", staticDirectory };
+    let result;
+    try {
+      result = await startServer({ ...options, port: 3001 });
+    } catch {
+      result = await startServer({ ...options, port: 0 });
+    }
     apiServer = result.server;
     await window.loadURL(`http://127.0.0.1:${result.port}`);
   } else {

@@ -6,13 +6,15 @@ import { AnalysisPage } from "./pages/AnalysisPage";
 import { EmployeesPage } from "./pages/EmployeesPage";
 import { EmployeeActivityPage } from "./pages/EmployeeActivityPage";
 import { CommessePage } from "./pages/CommessePage";
+import { LeavePage } from "./pages/LeavePage";
+import { LeaveAdminPage } from "./pages/LeaveAdminPage";
 import { AuthPage } from "./pages/AuthPage";
 import { useEmployees } from "./hooks/useEmployees";
 import { useEntryData } from "./hooks/useEntryData";
-import type { CreateTimeEntryInput, TimeEntry } from "../shared/timeEntry";
-import type { Session } from "../shared/people";
+import type { CreateTimeEntryInput, TimeEntry } from "../backend/contracts/timeEntry";
+import type { Session } from "../backend/contracts/people";
 
-export type Page = "employees" | "activity" | "reports" | "commesse" | "hours" | "summary";
+export type Page = "employees" | "activity" | "reports" | "commesse" | "leave" | "hours" | "summary";
 export type UserRole = "admin" | "employee";
 
 function currentMonth() {
@@ -64,6 +66,8 @@ export default function App() {
       role={session.role}
       userId={session.id}
       userName={session.name}
+      mustChangePassword={session.mustChangePassword}
+      onPasswordChanged={() => setSession({ ...session, mustChangePassword: false })}
       onPageChange={setPage}
       onSignOut={() => {
         setSession(null);
@@ -73,6 +77,8 @@ export default function App() {
       {session.role === "admin" ? (
         page === "commesse" ? (
           <CommessePage />
+        ) : page === "leave" ? (
+          <LeaveAdminPage />
         ) : page === "activity" ? (
           <EmployeeActivityPage />
         ) : page === "reports" ? (
@@ -100,10 +106,15 @@ export default function App() {
           )}
           {page === "hours" ? (
             <EmployeeHours employeeId={session.id} onSave={entryData.add} />
+          ) : page === "leave" ? (
+            <LeavePage employeeId={session.id} />
           ) : (
             <SummaryPage
+              employeeId={session.id}
               entries={entryData.entries}
               loading={entryData.loading}
+              onUpdate={entryData.update}
+              onDelete={entryData.remove}
               month={month}
               onMonthChange={setMonth}
             />

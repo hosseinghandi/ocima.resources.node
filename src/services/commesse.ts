@@ -1,4 +1,4 @@
-import type { Commessa, CommesseInput } from "../../shared/commessa";
+import type { Commessa, CommesseInput } from "../../backend/contracts/commessa";
 
 async function readError(response: Response): Promise<string> {
   const body: unknown = await response.json().catch(() => null);

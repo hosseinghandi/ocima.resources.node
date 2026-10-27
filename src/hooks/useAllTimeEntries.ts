@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { TimeEntry } from "../../shared/timeEntry";
+import type { TimeEntry } from "../../backend/contracts/timeEntry";
 import { getTimeEntries } from "../services/timeEntries";
 
 export function useAllTimeEntries() {

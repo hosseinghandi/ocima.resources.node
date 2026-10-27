@@ -1,16 +1,3 @@
-export function downloadCsv(filename: string, rows: (string | number)[][]): void {
-  const escape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
-  const blob = new Blob([`\uFEFF${rows.map((row) => row.map(escape).join(";")).join("\r\n")}`], {
-    type: "text/csv;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 export function formatDate(value: string): string {
   return new Intl.DateTimeFormat("it-IT", {
     day: "2-digit",

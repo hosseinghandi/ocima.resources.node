@@ -1,19 +1,19 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
+import { FilterField, FilterPanel, filterFieldClass } from "../components/FilterPanel";
 import { Icon } from "../components/Icon";
 import { useAllTimeEntries } from "../hooks/useAllTimeEntries";
 import { useCommesse } from "../hooks/useCommesse";
 import { useEmployees } from "../hooks/useEmployees";
-import { departmentLabel } from "../../shared/activities";
+import { departmentLabel } from "../../backend/contracts/activities";
 import {
   commessaSearchText,
   formatCommessaCode,
   formatCommessaLabel,
-} from "../../shared/commessa";
-import type { TimeEntry } from "../../shared/timeEntry";
-import { downloadCsv, formatDate, formatHours } from "../utils";
+} from "../../backend/contracts/commessa";
+import type { TimeEntry } from "../../backend/contracts/timeEntry";
+import { downloadPdf } from "../utils/pdf";
+import { formatDate, formatHours } from "../utils/format";
 
-const fieldClass =
-  "mt-1.5 min-h-10 w-full rounded-lg border border-border-strong bg-white px-3 text-sm font-medium text-ink outline-none focus:border-primary focus:ring-4 focus:ring-primary/10";
 
 function sumBy<T>(items: T[], key: (item: T) => string | number, value: (item: T) => number) {
   const map = new Map<string | number, number>();
@@ -36,6 +36,7 @@ export function AnalysisPage() {
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [highlight, setHighlight] = useState(0);
 
   const employeeById = useMemo(() => new Map(employees.map((item) => [item.id, item])), [employees]);
 
@@ -110,61 +111,105 @@ export function AnalysisPage() {
 
   const nameFor = (id: number) => employeeById.get(id)?.name ?? "Dipendente non assegnato";
 
+  function resetFilters() {
+    setQuery("");
+    setSelectedCode(null);
+    setFrom("");
+    setTo("");
+    setHighlight(0);
+  }
+
+  function handleSearchKey(event: KeyboardEvent<HTMLInputElement>) {
+    if (!showResults || matches.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlight((current) => Math.min(current + 1, matches.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlight((current) => Math.max(current - 1, 0));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const target = matches[Math.min(highlight, matches.length - 1)];
+      select(target.code, target.label);
+    }
+  }
+
   function select(code: string, label: string) {
     setSelectedCode(code);
     setQuery(label);
   }
 
-  function exportCsv() {
+  function exportPdf() {
     if (!selected || !detail) return;
-    downloadCsv(`commessa-${selected.code}.csv`, [
-      ["Data", "Dipendente", "Reparto", "Commessa", "Attività", "Ore", "Note"],
-      ...detail.sorted.map((entry) => [
-        entry.date,
-        nameFor(entry.employeeId),
-        departmentLabel(employeeById.get(entry.employeeId)?.department ?? ""),
-        selected.label,
-        entry.activity,
-        entry.hours,
-        entry.notes,
-      ]),
-    ]);
+    void downloadPdf({
+      filename: `commessa-${selected.code}.pdf`,
+      title: `Commessa ${selected.label}`,
+      subtitle: [selected.commessa.cliente, selected.commessa.disegno && `Disegno ${selected.commessa.disegno}`]
+        .filter(Boolean)
+        .join(" · "),
+      filters:
+        from || to
+          ? [`Periodo: ${from ? formatDate(from) : "inizio"} – ${to ? formatDate(to) : "oggi"}`]
+          : undefined,
+      summary: [
+        { label: "Ore totali", value: formatHours(selected.hours) },
+        { label: "Persone", value: String(selected.people) },
+        { label: "Giorni", value: String(detail.days) },
+        { label: "Registrazioni", value: String(selected.entries.length) },
+      ],
+      columns: ["Data", "Dipendente", "Attività", "Note", "Ore"],
+      numericColumns: [4],
+      sections: detail.departments.map((group) => ({
+        heading: departmentLabel(group.department) || "Senza reparto",
+        total: formatHours(group.hours),
+        rows: detail.sorted
+          .filter((entry) => (employeeById.get(entry.employeeId)?.department ?? "") === group.department)
+          .map((entry) => [
+            formatDate(entry.date),
+            nameFor(entry.employeeId),
+            entry.activity,
+            entry.notes || "—",
+            formatHours(entry.hours),
+          ]),
+      })),
+    });
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header>
         <p className="text-sm font-semibold text-primary">Analisi</p>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Analisi commesse</h1>
+        <h1 className="mt-0.5 text-xl font-extrabold tracking-tight text-ink sm:text-2xl">Analisi commesse</h1>
         <p className="mt-1 text-sm text-ink-secondary">Ore registrate per commessa, suddivise per reparto, persona e attività.</p>
       </header>
 
-      <section className="rounded-xl border border-border bg-white p-4 shadow-card sm:p-5">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px_160px]">
-          <label className="relative block text-xs font-semibold text-ink-secondary">
-            Commessa (codice, denominazione, disegno o cliente)
-            <Icon name="search" className="absolute left-3 top-[2.2rem] size-4 text-ink-muted" />
+      <FilterPanel active={Boolean(query || from || to)} onReset={resetFilters} resetClassName="lg:col-start-4">
+        <FilterField label="Commessa (codice, denominazione, disegno o cliente)" className="sm:col-span-2">
+          <span className="relative block">
+            <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
             <input
               type="search"
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);
                 setSelectedCode(null);
+                setHighlight(0);
               }}
-              placeholder="Cerca una commessa..."
+              onKeyDown={handleSearchKey}
+              placeholder="Es. 261035 o MISCELATRICE"
               aria-label="Cerca una commessa"
-              className={`${fieldClass} pl-9`}
+              className={`${filterFieldClass} pl-9`}
             />
-          </label>
-          <label className="block text-xs font-semibold text-ink-secondary">
-            Dal
-            <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className={fieldClass} />
-          </label>
-          <label className="block text-xs font-semibold text-ink-secondary">
-            Al
-            <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className={fieldClass} />
-          </label>
-        </div>
+          </span>
+        </FilterField>
+        <FilterField label="Dal">
+          <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className={filterFieldClass} />
+        </FilterField>
+        <FilterField label="Al">
+          <input type="date" value={to} onChange={(event) => setTo(event.target.value)} className={filterFieldClass} />
+        </FilterField>
+      </FilterPanel>
+      <div>
         {(commesseError || entriesError) && (
           <p className="mt-2 text-sm font-semibold text-red-700" role="alert">{commesseError || entriesError}</p>
         )}
@@ -173,14 +218,14 @@ export function AnalysisPage() {
             {commesseLoading ? (
               <p className="px-4 py-3 text-sm text-ink-secondary">Caricamento commesse...</p>
             ) : matches.length > 0 ? (
-              matches.map((project) => (
+              matches.map((project, index) => (
                 <button
                   key={project.code}
                   type="button"
                   role="option"
-                  aria-selected={false}
+                  aria-selected={index === highlight}
                   onClick={() => select(project.code, project.label)}
-                  className="flex min-h-14 w-full items-center gap-3 border-b border-border px-3 py-2.5 text-left last:border-b-0 hover:bg-primary-tint/50 focus-visible:bg-primary-tint/50 focus-visible:outline-none"
+                  className={`flex min-h-12 w-full items-center gap-3 border-b border-border px-3 py-2.5 text-left last:border-b-0 hover:bg-primary-tint/50 focus-visible:bg-primary-tint/50 focus-visible:outline-none ${index === highlight ? "bg-primary-tint/60" : ""}`}
                 >
                   <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-tint text-primary"><Icon name="briefcase" className="size-4" /></span>
                   <span className="min-w-0 flex-1">
@@ -199,7 +244,7 @@ export function AnalysisPage() {
             {selected ? "Commessa selezionata" : `${projects.length} commesse nell’archivio · cerca per vedere il dettaglio`}
           </p>
         )}
-      </section>
+      </div>
 
       {!selected && !showResults && (
         <section className="overflow-hidden rounded-xl border border-border bg-white shadow-card">
@@ -246,11 +291,11 @@ export function AnalysisPage() {
               </div>
               <button
                 type="button"
-                onClick={exportCsv}
+                onClick={exportPdf}
                 disabled={detail.sorted.length === 0}
                 className="flex min-h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm font-bold text-ink-secondary hover:bg-surface-muted disabled:opacity-50"
               >
-                <Icon name="download" className="size-4" /> Esporta CSV
+                <Icon name="download" className="size-4" /> Esporta PDF
               </button>
             </header>
             <div className="grid grid-cols-2 gap-3 p-3 sm:p-4 lg:grid-cols-4">
@@ -342,30 +387,29 @@ export function AnalysisPage() {
                 <header className="border-b border-border px-4 py-3.5 sm:px-5">
                   <h2 className="font-extrabold text-ink">Registrazioni</h2>
                 </header>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[680px] text-left text-sm">
-                    <thead className="bg-surface-muted/70 text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-                      <tr>
-                        <th className="px-5 py-2.5">Data</th>
-                        <th className="px-3 py-2.5">Dipendente</th>
-                        <th className="px-3 py-2.5">Attività</th>
-                        <th className="px-3 py-2.5 text-right">Ore</th>
-                        <th className="px-5 py-2.5">Note</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {detail.sorted.map((entry) => (
-                        <tr key={entry.id} className="align-top">
-                          <td className="whitespace-nowrap px-5 py-2 text-ink-secondary">{formatDate(entry.date)}</td>
-                          <td className="px-3 py-2 font-semibold text-ink">{nameFor(entry.employeeId)}</td>
-                          <td className="px-3 py-2 text-ink">{entry.activity}</td>
-                          <td className="whitespace-nowrap px-3 py-2 text-right font-extrabold text-ink">{formatHours(entry.hours)}</td>
-                          <td className="px-5 py-2 text-xs text-ink-secondary">{entry.notes || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="hidden grid-cols-[110px_minmax(0,1fr)_minmax(0,1fr)_70px] gap-x-4 bg-surface-muted/70 px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-ink-muted sm:grid">
+                  <span>Data</span>
+                  <span>Dipendente</span>
+                  <span>Attività</span>
+                  <span className="text-right">Ore</span>
                 </div>
+                <ul className="divide-y divide-border">
+                  {detail.sorted.map((entry) => (
+                    <li key={entry.id} className="px-4 py-3 sm:px-5">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-0.5 text-sm sm:grid-cols-[110px_minmax(0,1fr)_minmax(0,1fr)_70px]">
+                        <span className="text-xs text-ink-secondary sm:text-sm">{formatDate(entry.date)}</span>
+                        <span className="text-right font-extrabold text-ink sm:order-last">{formatHours(entry.hours)}</span>
+                        <span className="col-span-2 font-semibold text-ink sm:col-span-1">{nameFor(entry.employeeId)}</span>
+                        <span className="col-span-2 text-ink sm:col-span-1">{entry.activity}</span>
+                      </div>
+                      {entry.notes && (
+                        <p className="mt-1.5 break-words text-xs text-ink-secondary sm:pl-[126px]">
+                          <span className="font-bold text-ink-muted">Note:</span> {entry.notes}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </section>
             </>
           )}

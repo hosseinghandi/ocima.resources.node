@@ -1,18 +1,18 @@
-import { useMemo, useState, type FocusEvent, type FormEvent } from "react";
+import { useMemo, useState, type FocusEvent, type FormEvent, type KeyboardEvent } from "react";
 import type {
   CreateTimeEntryInput,
   TimeEntry,
-} from "../../shared/timeEntry";
-import type { Commessa } from "../../shared/commessa";
-import type { Employee } from "../../shared/people";
+} from "../../backend/contracts/timeEntry";
+import type { Commessa } from "../../backend/contracts/commessa";
+import type { Employee } from "../../backend/contracts/people";
 import {
   commessaSearchText,
   formatCommessaCode,
   formatCommessaLabel,
-} from "../../shared/commessa";
+} from "../../backend/contracts/commessa";
 import { useCommesse } from "../hooks/useCommesse";
 import { useActivities } from "../hooks/useActivities";
-import { departmentLabel } from "../../shared/activities";
+import { departmentLabel } from "../../backend/contracts/activities";
 import { Icon } from "./Icon";
 
 function localDate() {
@@ -43,6 +43,7 @@ export function HoursEntryForm({
   const [project, setProject] = useState("");
   const [selectedProject, setSelectedProject] = useState<Commessa | null>(null);
   const [projectSearchOpen, setProjectSearchOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
   const [activity, setActivity] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -63,6 +64,25 @@ export function HoursEntryForm({
     setSelectedProject(item);
     setProject(formatCommessaLabel(item));
     setProjectSearchOpen(false);
+  }
+
+  function handleProjectKey(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      setProjectSearchOpen(false);
+      return;
+    }
+    if (matchingProjects.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setProjectSearchOpen(true);
+      setHighlight((current) => Math.min(current + 1, matchingProjects.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlight((current) => Math.max(current - 1, 0));
+    } else if (event.key === "Enter" && projectSearchOpen && !selectedProject) {
+      event.preventDefault();
+      selectProject(matchingProjects[Math.min(highlight, matchingProjects.length - 1)]);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -95,7 +115,7 @@ export function HoursEntryForm({
   }
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-5 shadow-card sm:p-7">
+    <section className="rounded-xl border border-border bg-surface p-3.5 shadow-card sm:p-5">
       <div className="mb-6 flex items-start gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary-tint text-primary">
           <Icon name="clock" className="size-5" />
@@ -163,7 +183,9 @@ export function HoursEntryForm({
                   setProject(event.target.value);
                   setSelectedProject(null);
                   setProjectSearchOpen(true);
+                  setHighlight(0);
                 }}
+                onKeyDown={handleProjectKey}
                 placeholder="Cerca per codice, denominazione o cliente"
                 className={`${inputClass} pl-10`}
               />
@@ -171,14 +193,18 @@ export function HoursEntryForm({
           </label>
           {projectSearchOpen && (
             <div id="hours-project-options" role="listbox" aria-label="Commesse disponibili" className="absolute inset-x-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-white py-1 shadow-lg">
-              {matchingProjects.map((item) => (
+              {matchingProjects.map((item, index) => (
                 <button
                   key={item.id}
                   type="button"
                   role="option"
-                  aria-selected={selectedProject?.id === item.id}
+                  tabIndex={-1}
+                  ref={(element) => {
+                    if (element && index === highlight) element.scrollIntoView({ block: "nearest" });
+                  }}
+                  aria-selected={index === highlight}
                   onClick={() => selectProject(item)}
-                  className="flex min-h-11 w-full items-center gap-3 px-3.5 py-2 text-left text-sm text-ink transition hover:bg-primary-tint/60 focus-visible:bg-primary-tint/60 focus-visible:outline-none"
+                  className={`flex min-h-12 w-full items-center gap-3 px-3.5 py-2 text-left text-sm text-ink transition hover:bg-primary-tint/60 focus-visible:bg-primary-tint/60 focus-visible:outline-none ${index === highlight ? "bg-primary-tint/60" : ""}`}
                 >
                   <Icon name="briefcase" className="size-4 shrink-0 text-primary" />
                   <span className="min-w-0 flex-1">

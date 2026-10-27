@@ -11,7 +11,9 @@
     "backend": "tsx backend/server.ts",
     "backend:dev": "tsx watch backend/server.ts",
     "backend:build": "tsc -p tsconfig.backend.json",
-    "backend:production": "npm run backend:build && node backend-dist/backend/server.js",
+    "backend:production": "npm run backend:build && node backend-dist/server.js",
+    "serve": "npm run build && node backend-dist/server.js",
+    "qr": "tsx scripts/qr.ts",
     "desktop": "npm run build && electron . --production",
     "desktop:built": "electron . --production",
     "build": "tsc -b && npm run backend:build && vite build",
@@ -31,6 +33,7 @@
       "dist/**/*",
       "backend-dist/**/*",
       "electron/**/*",
+      ".env",
       "package.json"
     ],
     "win": {
@@ -40,6 +43,9 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "express": "^5.1.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
+    "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "tailwindcss": "^4.3.3"
@@ -48,6 +54,7 @@
     "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.3",
     "@types/node": "^24.19.2",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",

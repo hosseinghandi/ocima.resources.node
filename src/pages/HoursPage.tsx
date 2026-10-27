@@ -1,6 +1,6 @@
 import { HoursEntryForm } from "../components/HoursEntryForm";
-import type { CreateTimeEntryInput, TimeEntry } from "../../shared/timeEntry";
-import type { Employee } from "../../shared/people";
+import type { CreateTimeEntryInput, TimeEntry } from "../../backend/contracts/timeEntry";
+import type { Employee } from "../../backend/contracts/people";
 
 export function HoursPage({
   employee,
