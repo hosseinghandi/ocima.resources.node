@@ -86,8 +86,8 @@ export function AppShell({
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center gap-3 px-2 py-2">
-          <img src="/logo.png" alt="Ocima" className="h-10 w-28 object-contain" />
+        <div className="flex min-h-[42px] items-center justify-center px-2 py-2 sm:min-h-[105px] sm:border-b sm:border-white/5">
+          <img src="/logo.png" alt="OCIMA" className="h-auto w-[170px] object-contain sm:w-[218px]" />
         </div>
 
         <div className="mt-5 flex flex-col gap-4 overflow-y-auto">
